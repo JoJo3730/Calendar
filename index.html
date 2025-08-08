@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <title>👪 Family Calendar</title>
-  <link href="="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#ffffff"/>
@@ -16,14 +15,13 @@
     .fc-event { cursor: pointer; }
     #event-form { display: none; background: #f5f5f5; padding: 15px; border-radius: 6px; margin-bottom: 20px; }
     select, input { margin: 5px 0; padding: 5px; width: 100%; }
-    #calendar, #event-form { display: none; }
   </style>
 </head>
 <body>
   <h2>👪 Family Calendar</h2>
 
+  <!-- Auth UI -->
   <div id="auth-section">
-    <h2>Login or Sign Up</h2>
     <input type="email" id="auth-email" placeholder="Email"><br>
     <input type="password" id="auth-password" placeholder="Password"><br>
     <button onclick="signUp()">Sign Up</button>
@@ -32,6 +30,7 @@
     <p id="auth-status"></p>
   </div>
 
+  <!-- Event Form -->
   <div id="event-form">
     <input type="hidden" id="event-id">
     <label>Title:</label><input type="text" id="event-title">
@@ -39,12 +38,14 @@
     <button onclick="saveEvent()">Save</button>
     <button onclick="cancelEvent()">Cancel</button>
   </div>
+
   <div id="calendar"></div>
 
+  <!-- Modular Firebase SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    import { getDatabase, ref, set, remove, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import { getDatabase, ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyB6dFxZiIuwfobxGRxcfaNsoUeDiDV_1dQ",
@@ -62,7 +63,7 @@
 
     let calendar;
 
-    function initCalendar() {
+    document.addEventListener("DOMContentLoaded", function() {
       const calendarEl = document.getElementById("calendar");
       calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: "dayGridMonth",
@@ -80,39 +81,10 @@
         }
       });
       calendar.render();
-      loadEvents();
-    }
+    });
 
-    function loadEvents() {
-      const eventsRef = ref(db, "events");
-      onValue(eventsRef, (snapshot) => {
-        const data = snapshot.val() || {};
-        const events = Object.values(data);
-        calendar.removeAllEvents();
-        calendar.addEventSource(events);
-      });
-    }
-
-    function saveEvent() {
-      const id = document.getElementById("event-id").value || Date.now().toString();
-      const title = document.getElementById("event-title").value;
-      const date = document.getElementById("event-date").value;
-      if (!title || !date) return;
-      const event = { id, title, start: date };
-      set(ref(db, "events/" + id), event);
-      calendar.addEvent(event);
-      cancelEvent();
-    }
-
-    function cancelEvent() {
-      document.getElementById("event-form").style.display = "none";
-    }
-
-    function deleteEventFromFirebase(id) {
-      remove(ref(db, "events/" + id));
-    }
-
-    window.signUp = function () {
+    // Auth functions
+    function signUp() {
       const email = document.getElementById("auth-email").value;
       const password = document.getElementById("auth-password").value;
       createUserWithEmailAndPassword(auth, email, password)
@@ -122,37 +94,36 @@
         .catch((error) => {
           document.getElementById("auth-status").textContent = error.message;
         });
-    };
+    }
 
-    window.logIn = function () {
+    function logIn() {
       const email = document.getElementById("auth-email").value;
       const password = document.getElementById("auth-password").value;
       signInWithEmailAndPassword(auth, email, password)
         .then((userCredential) => {
           document.getElementById("auth-status").textContent = "Logged in as " + userCredential.user.email;
+          loadEvents();
         })
         .catch((error) => {
           document.getElementById("auth-status").textContent = error.message;
         });
-    };
+    }
 
-    window.logOut = function () {
-      signOut(auth).then(() => {
-        document.getElementById("auth-status").textContent = "Logged out.";
-        document.getElementById("calendar").style.display = "none";
-        document.getElementById("event-form").style.display = "none";
-      });
-    };
+    function logOut() {
+      signOut(auth)
+        .then(() => {
+          document.getElementById("auth-status").textContent = "Logged out.";
+          calendar.removeAllEvents();
+        });
+    }
 
     onAuthStateChanged(auth, (user) => {
       if (user) {
         document.getElementById("auth-status").textContent = "Welcome, " + user.email;
-        document.getElementById("calendar").style.display = "block";
-        initCalendar();
-      } else {
-        document.getElementById("calendar").style.display = "none";
+        loadEvents();
       }
     });
-  </script>
-</body>
-</html>
+
+    // Calendar functions
+    function saveEvent() {
+      const id = document.getElementById("event-id").value || Date.now().toString();
