@@ -127,3 +127,38 @@
     // Calendar functions
     function saveEvent() {
       const id = document.getElementById("event-id").value || Date.now().toString();
+      const title = document.getElementById("event-title").value;
+      const date = document.getElementById("event-date").value;
+      if (!title || !date) return;
+
+      const event = { id, title, start: date };
+      set(ref(db, "events/" + id), event)
+        .then(() => {
+          calendar.addEvent(event);
+          cancelEvent();
+        })
+        .catch((error) => {
+          console.error("Error saving:", error);
+        });
+    }
+
+    function loadEvents() {
+      const eventsRef = ref(db, "events");
+      onValue(eventsRef, (snapshot) => {
+        const data = snapshot.val() || {};
+        const events = Object.values(data);
+        calendar.removeAllEvents();
+        calendar.addEventSource(events);
+      });
+    }
+
+    function deleteEventFromFirebase(id) {
+      remove(ref(db, "events/" + id));
+    }
+
+    function cancelEvent() {
+      document.getElementById("event-form").style.display = "none";
+    }
+  </script>
+</body>
+</html>
