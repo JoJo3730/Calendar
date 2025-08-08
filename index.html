@@ -41,7 +41,7 @@
 
   <div id="calendar"></div>
 
-  <!-- Modular Firebase SDK -->
+  <!-- Firebase App (Modular SDK) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -84,7 +84,7 @@
     });
 
     // Auth functions
-    function signUp() {
+    window.signUp = function() {
       const email = document.getElementById("auth-email").value;
       const password = document.getElementById("auth-password").value;
       createUserWithEmailAndPassword(auth, email, password)
@@ -96,7 +96,7 @@
         });
     }
 
-    function logIn() {
+    window.logIn = function() {
       const email = document.getElementById("auth-email").value;
       const password = document.getElementById("auth-password").value;
       signInWithEmailAndPassword(auth, email, password)
@@ -109,7 +109,7 @@
         });
     }
 
-    function logOut() {
+    window.logOut = function() {
       signOut(auth)
         .then(() => {
           document.getElementById("auth-status").textContent = "Logged out.";
@@ -125,7 +125,7 @@
     });
 
     // Calendar functions
-    function saveEvent() {
+    window.saveEvent = function() {
       const id = document.getElementById("event-id").value || Date.now().toString();
       const title = document.getElementById("event-title").value;
       const date = document.getElementById("event-date").value;
@@ -159,13 +159,15 @@
     function cancelEvent() {
       document.getElementById("event-form").style.display = "none";
     }
- window.testSave = function() {
-    const id = "test123";
-    const event = { id, title: "Test Event", start: "2025-08-15" };
-    set(ref(db, "events/" + id), event)
+
+    // Global test function to save dummy event
+    window.testSave = function() {
+      const id = "test123";
+      const event = { id, title: "Test Event", start: "2025-08-15" };
+      set(ref(db, "events/" + id), event)
         .then(() => console.log("Test event saved."))
         .catch((error) => console.error("Test write error:", error));
-};
+    };
   </script>
 </body>
 </html>
