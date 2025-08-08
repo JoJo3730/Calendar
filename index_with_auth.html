@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Family Calendar</title>
+
+  <!-- FullCalendar CSS & JS -->
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"></script>
+
+  <!-- Manifest & Theme -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#f39c12">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    #calendar {
+      max-width: 900px;
+      margin: 20px auto;
+      display: none;
+    }
+    .fc-event { cursor: pointer; }
+    select, input { padding: 5px; width: 100%; margin-bottom: 5px; }
+    #event-form {
+      display: none;
+      background: #f5f5f5;
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>👨‍👩‍👧‍👦 Family Calendar</h2>
+
+  <div id="auth-section">
+    <button id="login-google">Login with Google</button>
+    <button id="logout" style="display:none;">Logout</button>
+  </div>
+
+  <div id="event-form">
+    <input type="hidden" id="event-id">
+    <label>Event Title:</label>
+    <input type="text" id="event-title">
+    <label>Date:</label>
+    <input type="date" id="event-date">
+    <label>Start Time:</label>
+    <input type="time" id="event-start">
+    <label>End Time:</label>
+    <input type="time" id="event-end">
+    <label>Person:</label>
+    <select id="event-person">
+      <option value="JoJo">JoJo</option>
+      <option value="Lovi">Lovi</option>
+      <option value="MaiMai">MaiMai</option>
+      <option value="Carol">Carol</option>
+      <option value="Jase">Jase</option>
+      <option value="LB">LB</option>
+    </select>
+    <button onclick="saveEvent()">💾 Save Event</button>
+    <button onclick="cancelEvent()">❌ Cancel</button>
+  </div>
+
+  <div id="calendar"></div>
+
+  <script>
+    // Firebase Config
+    const firebaseConfig = {
+      apiKey: "AIzaSyB6dFxZiIuwfobxGRxcfaNsoUeDiDV_1dQ",
+      authDomain: "familycalendar-1587d.firebaseapp.com",
+      projectId: "familycalendar-1587d",
+      storageBucket: "familycalendar-1587d.firebasestorage.app",
+      messagingSenderId: "667608245714",
+      appId: "1:667608245714:web:fdcc88f2317992d4f1140b"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+
+    const loginBtn = document.getElementById("login-google");
+    const logoutBtn = document.getElementById("logout");
+    const calendarDiv = document.getElementById("calendar");
+
+    loginBtn.onclick = async () => {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      await auth.signInWithPopup(provider);
+    };
+
+    logoutBtn.onclick = () => auth.signOut();
+
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        calendarDiv.style.display = "block";
+        loginBtn.style.display = "none";
+        logoutBtn.style.display = "inline-block";
+      } else {
+        calendarDiv.style.display = "none";
+        loginBtn.style.display = "inline-block";
+        logoutBtn.style.display = "none";
+      }
+    });
+
+    const personColors = {
+      JoJo: "#1abc9c", Lovi: "#e67e22", MaiMai: "#9b59b6",
+      Carol: "#f39c12", Jase: "#3498db", LB: "#e74c3c"
+    };
+
+    const storedEvents = JSON.parse(localStorage.getItem("familyEvents") || "[]");
+    let calendar;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
+        initialView: 'dayGridMonth',
+        editable: true,
+        selectable: true,
+        events: storedEvents,
+        dateClick: info => showForm(null, info.dateStr),
+        eventClick: info => showForm(info.event),
+        eventDrop: () => saveAllEvents()
+      });
+      calendar.render();
+    });
+
+    function showForm(event = null, date = null) {
+      document.getElementById('event-form').style.display = 'block';
+      document.getElementById('event-id').value = event ? event.id : '';
+      document.getElementById('event-title').value = event ? event.title : '';
+      document.getElementById('event-date').value = date || (event ? event.startStr.substring(0, 10) : '');
+      document.getElementById('event-start').value = event ? event.startStr.substring(11, 16) : '';
+      document.getElementById('event-end').value = event && event.end ? event.endStr.substring(11, 16) : '';
+      document.getElementById('event-person').value = event ? event.extendedProps.person : 'JoJo';
+    }
+
+    function cancelEvent() {
+      document.getElementById('event-form').style.display = 'none';
+    }
+
+    function saveEvent() {
+      const id = document.getElementById('event-id').value || 'evt_' + Date.now();
+      const title = document.getElementById('event-title').value;
+      const date = document.getElementById('event-date').value;
+      const start = document.getElementById('event-start').value;
+      const end = document.getElementById('event-end').value;
+      const person = document.getElementById('event-person').value;
+
+      const eventObj = {
+        id,
+        title,
+        start: `${date}T${start}`,
+        end: `${date}T${end}`,
+        color: personColors[person],
+        person
+      };
+
+      const existing = calendar.getEventById(id);
+      if (existing) existing.remove();
+
+      calendar.addEvent(eventObj);
+      saveAllEvents();
+      cancelEvent();
+    }
+
+    function saveAllEvents() {
+      const events = calendar.getEvents().map(evt => ({
+        id: evt.id,
+        title: evt.title,
+        start: evt.startStr,
+        end: evt.endStr,
+        color: evt.backgroundColor,
+        person: evt.extendedProps.person
+      }));
+      localStorage.setItem("familyEvents", JSON.stringify(events));
+    }
+  </script>
+</body>
+</html>
