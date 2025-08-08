@@ -41,7 +41,7 @@
 
   <div id="calendar"></div>
 
-  <!-- Firebase App (Modular SDK) -->
+  <!-- Modular Firebase SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -94,7 +94,7 @@
         .catch((error) => {
           document.getElementById("auth-status").textContent = error.message;
         });
-    }
+    };
 
     window.logIn = function() {
       const email = document.getElementById("auth-email").value;
@@ -107,7 +107,7 @@
         .catch((error) => {
           document.getElementById("auth-status").textContent = error.message;
         });
-    }
+    };
 
     window.logOut = function() {
       signOut(auth)
@@ -115,7 +115,7 @@
           document.getElementById("auth-status").textContent = "Logged out.";
           calendar.removeAllEvents();
         });
-    }
+    };
 
     onAuthStateChanged(auth, (user) => {
       if (user) {
@@ -134,13 +134,13 @@
       const event = { id, title, start: date };
       set(ref(db, "events/" + id), event)
         .then(() => {
-          calendar.addEvent(event);
           cancelEvent();
+          loadEvents(); // ✅ Make sure calendar refreshes from DB
         })
         .catch((error) => {
           console.error("Error saving:", error);
         });
-    }
+    };
 
     function loadEvents() {
       const eventsRef = ref(db, "events");
@@ -156,11 +156,11 @@
       remove(ref(db, "events/" + id));
     }
 
-    function cancelEvent() {
+    window.cancelEvent = function() {
       document.getElementById("event-form").style.display = "none";
-    }
+    };
 
-    // Global test function to save dummy event
+    // 🧪 Test event write (for console testing)
     window.testSave = function() {
       const id = "test123";
       const event = { id, title: "Test Event", start: "2025-08-15" };
