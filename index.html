@@ -96,6 +96,73 @@
     function deleteEventFromFirebase(id) {
       db.ref("events/" + id).remove();
     }
+    <!-- Auth UI -->
+<div id="auth-section">
+  <h2>Login or Sign Up</h2>
+  <input type="email" id="auth-email" placeholder="Email"><br>
+  <input type="password" id="auth-password" placeholder="Password"><br>
+  <button onclick="signUp()">Sign Up</button>
+  <button onclick="logIn()">Log In</button>
+  <button onclick="logOut()">Log Out</button>
+  <p id="auth-status"></p>
+</div>
+
+<script type="module">
+  // Firebase setup
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyB6dFxZiIuwfobxGRxcfaNsoUeDiDV_1dQ",
+    authDomain: "familycalendar-1587d.firebaseapp.com",
+    projectId: "familycalendar-1587d",
+    storageBucket: "familycalendar-1587d.firebasestorage.app",
+    messagingSenderId: "667608245714",
+    appId: "1:667608245714:web:fdcc88f2317992d4f1140b"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+
+  function signUp() {
+    const email = document.getElementById("auth-email").value;
+    const password = document.getElementById("auth-password").value;
+    createUserWithEmailAndPassword(auth, email, password)
+      .then((userCredential) => {
+        document.getElementById("auth-status").textContent = "Signed up as " + userCredential.user.email;
+      })
+      .catch((error) => {
+        document.getElementById("auth-status").textContent = error.message;
+      });
+  }
+
+  function logIn() {
+    const email = document.getElementById("auth-email").value;
+    const password = document.getElementById("auth-password").value;
+    signInWithEmailAndPassword(auth, email, password)
+      .then((userCredential) => {
+        document.getElementById("auth-status").textContent = "Logged in as " + userCredential.user.email;
+      })
+      .catch((error) => {
+        document.getElementById("auth-status").textContent = error.message;
+      });
+  }
+
+  function logOut() {
+    signOut(auth)
+      .then(() => {
+        document.getElementById("auth-status").textContent = "Logged out.";
+      });
+  }
+
+  // Show logged-in user
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      document.getElementById("auth-status").textContent = "Welcome, " + user.email;
+    }
+  });
+</script>
+
   </script>
 </body>
 </html>
