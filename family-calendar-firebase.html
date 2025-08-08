@@ -1,0 +1,101 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>👪 Family Calendar</title>
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#ffffff"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <link rel="icon" type="image/png" href="family-icon-192x192.png"/>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    #calendar { max-width: 900px; margin: auto; }
+    .fc-event { cursor: pointer; }
+    #event-form { display: none; background: #f5f5f5; padding: 15px; border-radius: 6px; margin-bottom: 20px; }
+    select, input { margin: 5px 0; padding: 5px; width: 100%; }
+  </style>
+</head>
+<body>
+  <h2>👪 Family Calendar</h2>
+  <div id="event-form">
+    <input type="hidden" id="event-id">
+    <label>Title:</label><input type="text" id="event-title">
+    <label>Date:</label><input type="date" id="event-date">
+    <button onclick="saveEvent()">Save</button>
+    <button onclick="cancelEvent()">Cancel</button>
+  </div>
+  <div id="calendar"></div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.3.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.3.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.3.1/firebase-database-compat.js"></script>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyB6dFxZiIuwfobxGRxcfaNsoUeDiDV_1dQ",
+      authDomain: "familycalendar-1587d.firebaseapp.com",
+      databaseURL: "https://familycalendar-1587d-default-rtdb.firebaseio.com",
+      projectId: "familycalendar-1587d",
+      storageBucket: "familycalendar-1587d.appspot.com",
+      messagingSenderId: "667608245714",
+      appId: "1:667608245714:web:fdcc88f2317992d4f1140b"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let calendar;
+    document.addEventListener("DOMContentLoaded", function() {
+      const calendarEl = document.getElementById("calendar");
+      calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: "dayGridMonth",
+        dateClick: function(info) {
+          document.getElementById("event-form").style.display = "block";
+          document.getElementById("event-id").value = "";
+          document.getElementById("event-title").value = "";
+          document.getElementById("event-date").value = info.dateStr;
+        },
+        eventClick: function(info) {
+          if (confirm("Delete this event?")) {
+            deleteEventFromFirebase(info.event.id);
+            info.event.remove();
+          }
+        }
+      });
+      calendar.render();
+      loadEvents();
+    });
+
+    function loadEvents() {
+      db.ref("events").once("value", snapshot => {
+        const data = snapshot.val() || {};
+        const events = Object.values(data);
+        calendar.removeAllEvents();
+        calendar.addEventSource(events);
+      });
+    }
+
+    function saveEvent() {
+      const id = document.getElementById("event-id").value || Date.now().toString();
+      const title = document.getElementById("event-title").value;
+      const date = document.getElementById("event-date").value;
+      if (!title || !date) return;
+      const event = { id, title, start: date };
+      db.ref("events/" + id).set(event);
+      calendar.addEvent(event);
+      cancelEvent();
+    }
+
+    function cancelEvent() {
+      document.getElementById("event-form").style.display = "none";
+    }
+
+    function deleteEventFromFirebase(id) {
+      db.ref("events/" + id).remove();
+    }
+  </script>
+</body>
+</html>
