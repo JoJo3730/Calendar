@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Family Calendar</title>
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    #calendar {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .fc-event {
+      cursor: pointer;
+    }
+    select, input {
+      margin: 5px 0;
+      padding: 5px;
+      width: 100%;
+    }
+    #event-form {
+      display: none;
+      background: #f5f5f5;
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+
+<h2>👨‍👩‍👧‍👦 Family Calendar</h2>
+
+<div id="event-form">
+  <input type="hidden" id="event-id">
+  <label>Event Title:</label>
+  <input type="text" id="event-title">
+
+  <label>Date:</label>
+  <input type="date" id="event-date">
+
+  <label>Start Time:</label>
+  <input type="time" id="event-start">
+
+  <label>End Time:</label>
+  <input type="time" id="event-end">
+
+  <label>Person:</label>
+  <select id="event-person">
+    <option value="JoJo">JoJo</option>
+    <option value="Lovi">Lovi</option>
+    <option value="MaiMai">MaiMai</option>
+    <option value="Carol">Carol</option>
+    <option value="Jase">Jase</option>
+    <option value="LB">LB</option>
+  </select>
+
+  <button onclick="saveEvent()">💾 Save Event</button>
+  <button onclick="cancelEvent()">❌ Cancel</button>
+</div>
+
+<div id="calendar"></div>
+
+<script>
+  const personColors = {
+    JoJo: "#1abc9c",
+    Lovi: "#e67e22",
+    MaiMai: "#9b59b6",
+    Carol: "#f39c12",
+    Jase: "#3498db",
+    LB: "#e74c3c"
+  };
+
+  let calendar;
+  const storedEvents = JSON.parse(localStorage.getItem("familyEvents") || "[]");
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const calendarEl = document.getElementById('calendar');
+    calendar = new FullCalendar.Calendar(calendarEl, {
+      initialView: 'dayGridMonth',
+      editable: true,
+      selectable: true,
+      events: storedEvents,
+      dateClick: function (info) {
+        showForm(null, info.dateStr);
+      },
+      eventClick: function (info) {
+        showForm(info.event);
+      },
+      eventDrop: function(info) {
+        saveAllEvents();
+      }
+    });
+    calendar.render();
+  });
+
+  function showForm(event = null, date = null) {
+    document.getElementById('event-form').style.display = 'block';
+    document.getElementById('event-id').value = event ? event.id : '';
+    document.getElementById('event-title').value = event ? event.title : '';
+    document.getElementById('event-date').value = date || (event ? event.startStr.substring(0, 10) : '');
+    document.getElementById('event-start').value = event ? event.startStr.substring(11, 16) : '';
+    document.getElementById('event-end').value = event && event.end ? event.endStr.substring(11, 16) : '';
+    document.getElementById('event-person').value = event ? event.extendedProps.person : 'JoJo';
+  }
+
+  function cancelEvent() {
+    document.getElementById('event-form').style.display = 'none';
+  }
+
+  function saveEvent() {
+    const id = document.getElementById('event-id').value || 'evt_' + Date.now();
+    const title = document.getElementById('event-title').value;
+    const date = document.getElementById('event-date').value;
+    const start = document.getElementById('event-start').value;
+    const end = document.getElementById('event-end').value;
+    const person = document.getElementById('event-person').value;
+
+    const eventObj = {
+      id,
+      title,
+      start: `${date}T${start}`,
+      end: `${date}T${end}`,
+      color: personColors[person],
+      person
+    };
+
+    const existing = calendar.getEventById(id);
+    if (existing) existing.remove();
+
+    calendar.addEvent(eventObj);
+    saveAllEvents();
+    cancelEvent();
+  }
+
+  function saveAllEvents() {
+    const events = calendar.getEvents().map(evt => ({
+      id: evt.id,
+      title: evt.title,
+      start: evt.startStr,
+      end: evt.endStr,
+      color: evt.backgroundColor,
+      person: evt.extendedProps.person
+    }));
+    localStorage.setItem("familyEvents", JSON.stringify(events));
+  }
+</script>
+
+</body>
+</html>
