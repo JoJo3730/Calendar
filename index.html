@@ -159,13 +159,12 @@
     function cancelEvent() {
       document.getElementById("event-form").style.display = "none";
     }
-    // TEST: Write dummy event to Firebase
-window.testSave = function() {
-  const id = "test123";
-  const event = { id, title: "Test Event", start: "2025-08-15" };
-  set(ref(db, "events/" + id), event)
-    .then(() => console.log("Test event saved."))
-    .catch((error) => console.error("Test write error:", error));
+ window.testSave = function() {
+    const id = "test123";
+    const event = { id, title: "Test Event", start: "2025-08-15" };
+    set(ref(db, "events/" + id), event)
+        .then(() => console.log("Test event saved."))
+        .catch((error) => console.error("Test write error:", error));
 };
   </script>
 </body>
