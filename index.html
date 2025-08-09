@@ -18,24 +18,34 @@
     h2 { margin: 0 0 16px; }
     #calendar { max-width: 900px; margin: 16px auto; }
     .fc-event { cursor: pointer; }
+
+    /* Auth section */
     #auth-section input { width:100%; padding:10px; font-size:16px; margin:6px 0; box-sizing:border-box; }
     .row { display:flex; gap:8px; flex-wrap:wrap; }
     .row > button { flex:1; min-width: 140px; }
+
+    /* Event form */
     #event-form { background:#f5f5f5; padding:12px; border-radius:8px; margin:16px 0; }
     #event-form.hidden { display:none; }
     label { display:block; margin-top:8px; }
     input[type="text"], input[type="date"], button { width:100%; padding:10px; font-size:16px; box-sizing:border-box; }
+
+    /* Status + helpers */
     #status { margin:8px 0; font-size:14px; }
     #status.ok { color:var(--ok); }
     #status.err { color:var(--err); }
-    .hidden { display:none; }
+    .hidden { display:none !important; }
+
     #btn-google { background:#fff; border:1px solid #dadce0; }
+
+    /* Top toolbar (shown when logged in) */
     #toolbar { display:flex; gap:8px; justify-content:flex-end; margin-bottom:8px; }
   </style>
 </head>
 <body>
   <h2>👪 Family Calendar</h2>
 
+  <!-- Auth block: this whole thing hides once logged in -->
   <div id="auth-section">
     <input type="email" id="auth-email" placeholder="Email" autocomplete="username">
     <input type="password" id="auth-password" placeholder="Password" autocomplete="current-password">
@@ -65,8 +75,10 @@
     </div>
   </div>
 
+  <!-- Toolbar appears after login; includes Refresh and a Log Out button -->
   <div id="toolbar" class="hidden">
     <button id="btn-refresh">Refresh</button>
+    <button id="btn-logout-toolbar">Log Out</button>
   </div>
 
   <div id="calendar"></div>
@@ -137,6 +149,7 @@
       calendar.render();
     });
 
+    // --- Auth actions ---
     el("btn-signup").onclick = () => {
       const email = el("auth-email").value.trim();
       const password = el("auth-password").value;
@@ -164,30 +177,37 @@
       }
     };
 
-    el("btn-logout").onclick = () => {
+    function doLogout() {
       signOut(auth).then(() => {
         authStatusEl.textContent = "Logged out.";
         showStatus("Logged out.", true);
         calendar.removeAllEvents();
         el("event-form").classList.add("hidden");
         el("toolbar").classList.add("hidden");
+        el("auth-section").classList.remove("hidden");   // show login UI again
       });
-    };
+    }
+    el("btn-logout").onclick = doLogout;
+    el("btn-logout-toolbar").onclick = doLogout;
 
+    // Hide/show UI when auth state changes
     onAuthStateChanged(auth, (user) => {
       if (user) {
         authStatusEl.textContent = "Welcome, " + (user.email || "");
+        el("auth-section").classList.add("hidden");       // HIDE the login/sign-up block after login
         el("event-form").classList.remove("hidden");
         el("toolbar").classList.remove("hidden");
         loadEvents(true);
       } else {
         authStatusEl.textContent = "";
+        el("auth-section").classList.remove("hidden");    // SHOW login when logged out
         el("event-form").classList.add("hidden");
         el("toolbar").classList.add("hidden");
         calendar && calendar.removeAllEvents();
       }
     });
 
+    // --- Buttons under form/toolbar ---
     el("btn-save").onclick = () => saveEvent();
     el("btn-cancel").onclick = () => el("event-form").classList.add("hidden");
     el("btn-refresh").onclick = () => loadEvents(false);
