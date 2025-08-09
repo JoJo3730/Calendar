@@ -23,8 +23,8 @@
     .fc-event { cursor: pointer; }
 
     #auth-section input { width:100%; padding:10px; font-size:16px; margin:6px 0; box-sizing:border-box; }
-    .row { display:flex; gap:8px; }
-    .row > button { flex:1; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; }
+    .row > button { flex:1; min-width: 140px; }
 
     #event-form { background:#f5f5f5; padding:12px; border-radius:8px; margin:16px 0; }
     #event-form.hidden { display:none; }
@@ -35,6 +35,10 @@
     #status.ok { color:var(--ok); }
     #status.err { color:var(--err); }
     .hidden { display:none; }
+
+    /* Google button-ish */
+    #btn-google { background:#fff; border:1px solid #dadce0; }
+    #btn-google span { display:inline-block; vertical-align:middle; }
   </style>
 </head>
 <body>
@@ -47,6 +51,7 @@
     <div class="row">
       <button id="btn-signup">Sign Up</button>
       <button id="btn-login">Log In</button>
+      <button id="btn-google">Sign in with Google</button>
       <button id="btn-logout">Log Out</button>
     </div>
     <p id="auth-status"></p>
@@ -73,7 +78,17 @@
   <!-- Firebase (modular) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import {
+      getAuth,
+      GoogleAuthProvider,
+      signInWithPopup,
+      signInWithRedirect,
+      getRedirectResult,
+      createUserWithEmailAndPassword,
+      signInWithEmailAndPassword,
+      signOut,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
     import { getDatabase, ref, set, get, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
     // ====== CONFIG ======
@@ -91,6 +106,7 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getDatabase(app);
+    const googleProvider = new GoogleAuthProvider();
 
     const el = (id) => document.getElementById(id);
     const statusEl = el('status');
@@ -100,12 +116,27 @@
       statusEl.textContent = msg;
       statusEl.classList.remove('hidden','ok','err');
       statusEl.classList.add(ok ? 'ok' : 'err');
-      // auto-hide info; keep errors a bit longer
       setTimeout(() => statusEl.classList.add('hidden'), ok ? 2000 : 5000);
     }
 
+    // Detect iOS Safari-ish (popups are flaky)
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
     let calendar;
-    document.addEventListener("DOMContentLoaded", () => {
+    document.addEventListener("DOMContentLoaded", async () => {
+      // Handle Google redirect sign-in result if we came back from Google
+      try {
+        const result = await getRedirectResult(auth);
+        if (result && result.user) {
+          authStatusEl.textContent = "Welcome, " + (result.user.email || "");
+          showStatus("Logged in with Google.", true);
+        }
+      } catch (e) {
+        // If redirect flow failed, show it (rare)
+        if (e && e.message) showStatus(e.message, false);
+      }
+
       calendar = new FullCalendar.Calendar(el("calendar"), {
         initialView: "dayGridMonth",
         dateClick: (info) => {
@@ -143,8 +174,32 @@
       const email = el("auth-email").value.trim();
       const password = el("auth-password").value;
       signInWithEmailAndPassword(auth, email, password)
-        .then((u) => { authStatusEl.textContent = "Welcome, " + (u.user.email || ""); showStatus("Logged in.", true); /* loadEvents below in auth state */ })
+        .then((u) => { authStatusEl.textContent = "Welcome, " + (u.user.email || ""); showStatus("Logged in.", true); /* loadEvents runs in auth listener */ })
         .catch((e) => { authStatusEl.textContent = e.message; showStatus(e.message, false); });
+    };
+
+    // NEW: Google Sign-In
+    el("btn-google").onclick = async () => {
+      try {
+        if (isIOS || isSafari) {
+          // safer on iOS/Safari
+          await signInWithRedirect(auth, googleProvider);
+        } else {
+          await signInWithPopup(auth, googleProvider);
+          showStatus("Logged in with Google.", true);
+        }
+      } catch (e) {
+        // If popups blocked, fall back to redirect automatically
+        if (e?.code === 'auth/popup-blocked') {
+          try {
+            await signInWithRedirect(auth, googleProvider);
+          } catch (err) {
+            showStatus(err.message, false);
+          }
+        } else {
+          showStatus(e.message, false);
+        }
+      }
     };
 
     el("btn-logout").onclick = () => {
@@ -196,7 +251,6 @@
           calendar.addEventSource(events);
         })
         .catch((e) => {
-          // This is where you'll see "Permission denied" if rules block access
           console.error(e);
           showStatus(e.message || "Failed to load events.", false);
         });
