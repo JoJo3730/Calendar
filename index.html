@@ -3,24 +3,37 @@
 <head>
   <meta charset="UTF-8" />
   <title>👪 Family Calendar</title>
+
+  <!-- FullCalendar -->
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+
+  <!-- PWA meta (optional) -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#ffffff"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+
   <link rel="icon" type="image/png" href="family-icon-192x192.png"/>
+
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; padding: 20px; }
-    #calendar { max-width: 900px; margin: auto; }
+    :root { --ok:#0a7a0a; --err:#b00020; }
+    body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; padding: 20px; }
+    h2 { margin: 0 0 16px; }
+    #calendar { max-width: 900px; margin: 16px auto; }
     .fc-event { cursor: pointer; }
-    #event-form { background:#f5f5f5; padding:12px; border-radius:8px; margin:12px 0; }
-    label { display:block; margin-top:8px; }
-    input, button { width:100%; padding:10px; font-size:16px; box-sizing:border-box; }
+
+    #auth-section input { width:100%; padding:10px; font-size:16px; margin:6px 0; box-sizing:border-box; }
     .row { display:flex; gap:8px; }
     .row > button { flex:1; }
+
+    #event-form { background:#f5f5f5; padding:12px; border-radius:8px; margin:16px 0; }
+    #event-form.hidden { display:none; }
+    label { display:block; margin-top:8px; }
+    input[type="text"], input[type="date"], button { width:100%; padding:10px; font-size:16px; box-sizing:border-box; }
+
     #status { margin:8px 0; font-size:14px; }
-    #status.ok { color:#0a7a0a; }
-    #status.err { color:#b00020; }
+    #status.ok { color:var(--ok); }
+    #status.err { color:var(--err); }
     .hidden { display:none; }
   </style>
 </head>
@@ -32,17 +45,17 @@
     <input type="email" id="auth-email" placeholder="Email" autocomplete="username">
     <input type="password" id="auth-password" placeholder="Password" autocomplete="current-password">
     <div class="row">
-      <button onclick="signUp()">Sign Up</button>
-      <button onclick="logIn()">Log In</button>
-      <button onclick="logOut()">Log Out</button>
+      <button id="btn-signup">Sign Up</button>
+      <button id="btn-login">Log In</button>
+      <button id="btn-logout">Log Out</button>
     </div>
     <p id="auth-status"></p>
   </div>
 
-  <!-- Inline status for saves/errors (visible on phone) -->
+  <!-- Inline status for success/errors -->
   <div id="status" class="hidden"></div>
 
-  <!-- Event Form -->
+  <!-- Event Form (only visible when logged in) -->
   <div id="event-form" class="hidden">
     <input type="hidden" id="event-id">
     <label>Title:</label>
@@ -50,19 +63,20 @@
     <label>Date:</label>
     <input type="date" id="event-date">
     <div class="row" style="margin-top:8px;">
-      <button onclick="saveEvent()">Save</button>
-      <button onclick="cancelEvent()">Cancel</button>
+      <button id="btn-save">Save</button>
+      <button id="btn-cancel">Cancel</button>
     </div>
   </div>
 
   <div id="calendar"></div>
 
-  <!-- Firebase SDK and Calendar Logic -->
+  <!-- Firebase (modular) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
     import { getDatabase, ref, set, get, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
+    // ====== CONFIG ======
     const firebaseConfig = {
       apiKey: "AIzaSyB6dFxZiIuwfobxGRxcfaNsoUeDiDV_1dQ",
       authDomain: "familycalendar-1587d.firebaseapp.com",
@@ -73,26 +87,28 @@
       appId: "1:667608245714:web:fdcc88f2317992d4f1140b"
     };
 
+    // ====== INIT ======
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getDatabase(app);
 
     const el = (id) => document.getElementById(id);
-    const status = el('status');
+    const statusEl = el('status');
+    const authStatusEl = el('auth-status');
 
     function showStatus(msg, ok=false) {
-      status.textContent = msg;
-      status.classList.remove('hidden', 'ok', 'err');
-      status.classList.add(ok ? 'ok' : 'err');
-      // auto-hide after a bit (but keep errors longer)
-      setTimeout(() => status.classList.add('hidden'), ok ? 2000 : 5000);
+      statusEl.textContent = msg;
+      statusEl.classList.remove('hidden','ok','err');
+      statusEl.classList.add(ok ? 'ok' : 'err');
+      // auto-hide info; keep errors a bit longer
+      setTimeout(() => statusEl.classList.add('hidden'), ok ? 2000 : 5000);
     }
 
     let calendar;
-    document.addEventListener("DOMContentLoaded", function() {
-      calendar = new FullCalendar.Calendar(document.getElementById("calendar"), {
+    document.addEventListener("DOMContentLoaded", () => {
+      calendar = new FullCalendar.Calendar(el("calendar"), {
         initialView: "dayGridMonth",
-        dateClick: function(info) {
+        dateClick: (info) => {
           if (!auth.currentUser) {
             showStatus("Please log in to add events.", false);
             return;
@@ -100,76 +116,78 @@
           el("event-form").classList.remove("hidden");
           el("event-id").value = "";
           el("event-title").value = "";
-          el("event-date").value = info.dateStr; // YYYY-MM-DD (iOS friendly)
+          el("event-date").value = info.dateStr; // YYYY-MM-DD (iOS-friendly)
         },
-        eventClick: function(info) {
+        eventClick: (info) => {
           if (!auth.currentUser) { showStatus("Please log in to delete.", false); return; }
           if (confirm("Delete this event?")) {
-            deleteEventFromFirebase(info.event.id)
-              .then(() => showStatus("Deleted.", true))
-              .catch(e => showStatus(e.message, false));
-            info.event.remove();
+            remove(ref(db, "events/" + info.event.id))
+              .then(() => { info.event.remove(); showStatus("Deleted.", true); })
+              .catch((e) => showStatus(e.message, false));
           }
         }
       });
       calendar.render();
     });
 
-    // ---- Auth ----
-    window.signUp = function() {
+    // ====== AUTH HANDLERS ======
+    el("btn-signup").onclick = () => {
       const email = el("auth-email").value.trim();
       const password = el("auth-password").value;
       createUserWithEmailAndPassword(auth, email, password)
-        .then((u) => { el("auth-status").textContent = "Signed up as " + (u.user.email || ""); showStatus("Signed up.", true); })
-        .catch((e) => { el("auth-status").textContent = e.message; showStatus(e.message, false); });
+        .then((u) => { authStatusEl.textContent = "Signed up as " + (u.user.email || ""); showStatus("Signed up.", true); })
+        .catch((e) => { authStatusEl.textContent = e.message; showStatus(e.message, false); });
     };
 
-    window.logIn = function() {
+    el("btn-login").onclick = () => {
       const email = el("auth-email").value.trim();
       const password = el("auth-password").value;
       signInWithEmailAndPassword(auth, email, password)
-        .then((u) => { el("auth-status").textContent = "Welcome, " + (u.user.email || ""); showStatus("Logged in.", true); loadEvents(); })
-        .catch((e) => { el("auth-status").textContent = e.message; showStatus(e.message, false); });
+        .then((u) => { authStatusEl.textContent = "Welcome, " + (u.user.email || ""); showStatus("Logged in.", true); /* loadEvents below in auth state */ })
+        .catch((e) => { authStatusEl.textContent = e.message; showStatus(e.message, false); });
     };
 
-    window.logOut = function() {
+    el("btn-logout").onclick = () => {
       signOut(auth).then(() => {
-        el("auth-status").textContent = "Logged out.";
+        authStatusEl.textContent = "Logged out.";
         showStatus("Logged out.", true);
         calendar.removeAllEvents();
         el("event-form").classList.add("hidden");
       });
     };
 
+    // Only load events AFTER Firebase confirms we are logged in
     onAuthStateChanged(auth, (user) => {
       if (user) {
-        el("auth-status").textContent = "Welcome, " + (user.email || "");
+        authStatusEl.textContent = "Welcome, " + (user.email || "");
         el("event-form").classList.remove("hidden");
-        loadEvents();
+        loadEvents(); // now safe to touch the DB
       } else {
-        el("auth-status").textContent = "";
+        authStatusEl.textContent = "";
         el("event-form").classList.add("hidden");
         calendar && calendar.removeAllEvents();
       }
     });
 
-    // ---- Data ----
-    window.saveEvent = function() {
-      if (!auth.currentUser) { showStatus("Please log in to save.", false); return; }
+    // ====== DATA FUNCTIONS ======
+    el("btn-save").onclick = () => saveEvent();
+    el("btn-cancel").onclick = () => cancelEvent();
 
+    function saveEvent() {
+      if (!auth.currentUser) { showStatus("Please log in to save.", false); return; }
       const id = el("event-id").value || Date.now().toString();
       const title = el("event-title").value.trim();
-      const date = el("event-date").value; // iOS returns YYYY-MM-DD
+      const date = el("event-date").value;
       if (!title || !date) { showStatus("Title and date are required.", false); return; }
 
       const event = { id, title, start: date };
       set(ref(db, "events/" + id), event)
-        .then(() => { showStatus("Saved!", true); cancelEvent(); return loadEvents(); })
-        .catch((error) => { console.error(error); showStatus(error.message, false); });
-    };
+        .then(() => { cancelEvent(); showStatus("Saved!", true); return loadEvents(); })
+        .catch((e) => showStatus(e.message, false));
+    }
 
     function loadEvents() {
-      // one-time fetch to ensure fresh data (works well on mobile)
+      // One-time fetch: avoids stale listeners and works well on mobile
       return get(ref(db, "events"))
         .then((snapshot) => {
           const data = snapshot.val() || {};
@@ -177,24 +195,24 @@
           calendar.removeAllEvents();
           calendar.addEventSource(events);
         })
-        .catch((e) => { console.error(e); showStatus(e.message, false); });
+        .catch((e) => {
+          // This is where you'll see "Permission denied" if rules block access
+          console.error(e);
+          showStatus(e.message || "Failed to load events.", false);
+        });
     }
 
-    function deleteEventFromFirebase(id) {
-      return remove(ref(db, "events/" + id));
-    }
-
-    window.cancelEvent = function() {
+    function cancelEvent() {
       el("event-form").classList.add("hidden");
-    };
+    }
 
-    // Debug helper you can run from the console (desktop): testSave()
+    // Debug helper from desktop console: testSave()
     window.testSave = function() {
       const id = "test123";
       const event = { id, title: "Test Event", start: "2025-08-15" };
       set(ref(db, "events/" + id), event)
         .then(() => { console.log("Test event saved."); showStatus("Test event saved.", true); return loadEvents(); })
-        .catch((error) => { console.error(error); showStatus(error.message, false); });
+        .catch((e) => { console.error(e); showStatus(e.message, false); });
     };
   </script>
 </body>
