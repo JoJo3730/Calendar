@@ -4,15 +4,12 @@
   <meta charset="UTF-8" />
   <title>👪 Family Calendar</title>
 
-  <!-- FullCalendar -->
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
 
-  <!-- PWA meta (optional) -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#ffffff"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
-
   <link rel="icon" type="image/png" href="family-icon-192x192.png"/>
 
   <style>
@@ -21,21 +18,17 @@
     h2 { margin: 0 0 16px; }
     #calendar { max-width: 900px; margin: 16px auto; }
     .fc-event { cursor: pointer; }
-
     #auth-section input { width:100%; padding:10px; font-size:16px; margin:6px 0; box-sizing:border-box; }
     .row { display:flex; gap:8px; flex-wrap:wrap; }
     .row > button { flex:1; min-width: 140px; }
-
     #event-form { background:#f5f5f5; padding:12px; border-radius:8px; margin:16px 0; }
     #event-form.hidden { display:none; }
     label { display:block; margin-top:8px; }
     input[type="text"], input[type="date"], button { width:100%; padding:10px; font-size:16px; box-sizing:border-box; }
-
     #status { margin:8px 0; font-size:14px; }
     #status.ok { color:var(--ok); }
     #status.err { color:var(--err); }
     .hidden { display:none; }
-
     #btn-google { background:#fff; border:1px solid #dadce0; }
     #toolbar { display:flex; gap:8px; justify-content:flex-end; margin-bottom:8px; }
   </style>
@@ -43,7 +36,6 @@
 <body>
   <h2>👪 Family Calendar</h2>
 
-  <!-- Auth UI -->
   <div id="auth-section">
     <input type="email" id="auth-email" placeholder="Email" autocomplete="username">
     <input type="password" id="auth-password" placeholder="Password" autocomplete="current-password">
@@ -56,46 +48,37 @@
     <p id="auth-status"></p>
   </div>
 
-  <!-- Inline status for success/errors -->
   <div id="status" class="hidden"></div>
 
-  <!-- Event Form (only visible when logged in) -->
+  <!-- Event form -->
   <div id="event-form" class="hidden">
     <input type="hidden" id="event-id">
     <label>Title:</label>
-    <input type="text" id="event-title" inputmode="text" placeholder="e.g., Soccer practice">
-    <label>Date:</label>
-    <input type="date" id="event-date">
+    <input type="text" id="event-title" placeholder="e.g., Vacation">
+    <label>Start Date:</label>
+    <input type="date" id="event-date-start">
+    <label>End Date (optional, inclusive):</label>
+    <input type="date" id="event-date-end">
     <div class="row" style="margin-top:8px;">
       <button id="btn-save">Save</button>
       <button id="btn-cancel">Cancel</button>
     </div>
   </div>
 
-  <!-- Small toolbar above calendar -->
   <div id="toolbar" class="hidden">
     <button id="btn-refresh">Refresh</button>
   </div>
 
   <div id="calendar"></div>
 
-  <!-- Firebase (modular) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import {
-      getAuth,
-      GoogleAuthProvider,
-      signInWithPopup,
-      signInWithRedirect,
-      getRedirectResult,
-      createUserWithEmailAndPassword,
-      signInWithEmailAndPassword,
-      signOut,
-      onAuthStateChanged
+      getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult,
+      createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
     import { getDatabase, ref, set, get, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-    // ====== CONFIG ======
     const firebaseConfig = {
       apiKey: "AIzaSyB6dFxZiIuwfobxGRxcfaNsoUeDiDV_1dQ",
       authDomain: "familycalendar-1587d.firebaseapp.com",
@@ -106,7 +89,6 @@
       appId: "1:667608245714:web:fdcc88f2317992d4f1140b"
     };
 
-    // ====== INIT ======
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getDatabase(app);
@@ -123,34 +105,25 @@
       setTimeout(() => statusEl.classList.add('hidden'), ok ? 2500 : 6000);
     }
 
-    // Detect iOS Safari-ish
     const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
     const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
     let calendar;
     document.addEventListener("DOMContentLoaded", async () => {
-      // Handle Google redirect result
       try {
-        const result = await getRedirectResult(auth);
-        if (result && result.user) {
-          authStatusEl.textContent = "Welcome, " + (result.user.email || "");
-          showStatus("Logged in with Google.", true);
-        }
-      } catch (e) {
-        if (e && e.message) showStatus(e.message, false);
-      }
+        const res = await getRedirectResult(auth);
+        if (res?.user) { authStatusEl.textContent = "Welcome, " + (res.user.email || ""); showStatus("Logged in with Google.", true); }
+      } catch(e) { if (e?.message) showStatus(e.message, false); }
 
       calendar = new FullCalendar.Calendar(el("calendar"), {
         initialView: "dayGridMonth",
         dateClick: (info) => {
-          if (!auth.currentUser) {
-            showStatus("Please log in to add events.", false);
-            return;
-          }
+          if (!auth.currentUser) { showStatus("Please log in to add events.", false); return; }
           el("event-form").classList.remove("hidden");
           el("event-id").value = "";
           el("event-title").value = "";
-          el("event-date").value = info.dateStr; // YYYY-MM-DD
+          el("event-date-start").value = info.dateStr;
+          el("event-date-end").value = info.dateStr; // prefill for convenience
         },
         eventClick: (info) => {
           if (!auth.currentUser) { showStatus("Please log in to delete.", false); return; }
@@ -164,7 +137,6 @@
       calendar.render();
     });
 
-    // ====== AUTH HANDLERS ======
     el("btn-signup").onclick = () => {
       const email = el("auth-email").value.trim();
       const password = el("auth-password").value;
@@ -183,19 +155,12 @@
 
     el("btn-google").onclick = async () => {
       try {
-        if (isIOS || isSafari) {
-          await signInWithRedirect(auth, googleProvider);
-        } else {
-          await signInWithPopup(auth, googleProvider);
-          showStatus("Logged in with Google.", true);
-        }
+        if (isIOS || isSafari) await signInWithRedirect(auth, googleProvider);
+        else { await signInWithPopup(auth, googleProvider); showStatus("Logged in with Google.", true); }
       } catch (e) {
         if (e?.code === 'auth/popup-blocked') {
-          try { await signInWithRedirect(auth, googleProvider); }
-          catch (err) { showStatus(err.message, false); }
-        } else {
-          showStatus(e.message, false);
-        }
+          try { await signInWithRedirect(auth, googleProvider); } catch (err) { showStatus(err.message, false); }
+        } else showStatus(e.message, false);
       }
     };
 
@@ -209,13 +174,12 @@
       });
     };
 
-    // Load only AFTER login
     onAuthStateChanged(auth, (user) => {
       if (user) {
         authStatusEl.textContent = "Welcome, " + (user.email || "");
         el("event-form").classList.remove("hidden");
         el("toolbar").classList.remove("hidden");
-        loadEvents(true); // fresh load on login
+        loadEvents(true);
       } else {
         authStatusEl.textContent = "";
         el("event-form").classList.add("hidden");
@@ -224,83 +188,78 @@
       }
     });
 
-    // ====== DATA FUNCTIONS ======
     el("btn-save").onclick = () => saveEvent();
-    el("btn-cancel").onclick = () => cancelEvent();
+    el("btn-cancel").onclick = () => el("event-form").classList.add("hidden");
     el("btn-refresh").onclick = () => loadEvents(false);
+
+    // --- helper: add 1 day (YYYY-MM-DD) ---
+    function addDays(ymd, days) {
+      const d = new Date(ymd + "T00:00:00");
+      d.setDate(d.getDate() + days);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth()+1).padStart(2,'0');
+      const dd = String(d.getDate()).padStart(2,'0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
 
     function saveEvent() {
       if (!auth.currentUser) { showStatus("Please log in to save.", false); return; }
+
       const id = el("event-id").value || Date.now().toString();
       const title = el("event-title").value.trim();
-      const date = el("event-date").value;
-      if (!title || !date) { showStatus("Title and date are required.", false); return; }
+      const start = el("event-date-start").value;
+      const endInclusive = el("event-date-end").value;
+      if (!title || !start) { showStatus("Title and start date are required.", false); return; }
 
-      const event = { id, title, start: date };
+      let event = { id, title, start, allDay: true };
+      if (endInclusive && endInclusive >= start) {
+        // FullCalendar all-day uses exclusive end
+        event.end = addDays(endInclusive, 1);
+      }
+
       set(ref(db, "events/" + id), event)
-        .then(() => { cancelEvent(); showStatus("Saved!", true); return loadEvents(false); })
+        .then(() => { el("event-form").classList.add("hidden"); showStatus("Saved!", true); return loadEvents(false); })
         .catch((e) => showStatus(e.message, false));
     }
 
     function normalizeEvent(obj) {
-      // Accept legacy { date } and map to { start }
+      // Legacy {date} -> {start}
       const start = obj.start || obj.date;
-      const title = obj.title;
-      const id = obj.id || String(Date.now());
-      return { id, title, start };
+      const res = { id: obj.id || String(Date.now()), title: obj.title, start, allDay: true };
+      if (obj.end) res.end = obj.end;
+      return res;
     }
 
     function isValidEvent(e) {
-      // Basic checks; FC will ignore bad items anyway
-      if (!e) return false;
-      if (typeof e.title !== 'string' || e.title.trim() === '') return false;
-      if (typeof e.start !== 'string') return false;
-      // YYYY-MM-DD
-      return /^\d{4}-\d{2}-\d{2}$/.test(e.start);
+      if (!e || typeof e.title !== 'string' || !e.title.trim()) return false;
+      if (typeof e.start !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(e.start)) return false;
+      if (e.end && !/^\d{4}-\d{2}-\d{2}$/.test(e.end)) return false;
+      return true;
     }
 
     async function loadEvents(isInitial) {
       if (!auth.currentUser) return;
-
       try {
         const snap = await get(ref(db, "events"));
         const data = snap.val() || {};
-        const rawEvents = Object.values(data);
-
-        let fixed = 0, ok = 0, bad = 0;
+        const raw = Object.values(data);
+        let ok=0, bad=0;
         const events = [];
 
-        // Normalize, count, and optionally fix legacy rows in-memory
-        for (const obj of rawEvents) {
-          const normalized = normalizeEvent(obj);
-          const needsFix = (!obj.start && obj.date);
-          if (isValidEvent(normalized)) {
-            events.push(normalized);
-            ok++;
-            // Optionally auto-fix legacy {date} -> {start} in DB
-            if (needsFix && normalized.id) {
-              try {
-                await set(ref(db, "events/" + normalized.id), normalized);
-                fixed++;
-              } catch (_) { /* ignore fix failures */ }
-            }
-          } else {
-            bad++;
-          }
+        for (const obj of raw) {
+          const e = normalizeEvent(obj);
+          if (isValidEvent(e)) { events.push(e); ok++; }
+          else { bad++; }
         }
 
         calendar.removeAllEvents();
         calendar.addEventSource(events);
 
-        // Helpful status line so you know what's happening on mobile
-        const msg = `Loaded ${ok} event(s)` +
-                    (fixed ? `, fixed ${fixed}` : '') +
-                    (bad ? `, skipped ${bad}` : '');
+        const msg = `Loaded ${ok} event(s)` + (bad ? `, skipped ${bad}` : '');
         showStatus(msg, true);
 
-        // On first load, if nothing appears but DB has items, tell user
-        if (isInitial && ok === 0 && rawEvents.length > 0) {
-          showStatus("Found events, but none were valid for display. Check titles/dates.", false);
+        if (isInitial && ok===0 && raw.length>0) {
+          showStatus("Found events, but none valid to display. Check fields.", false);
         }
       } catch (e) {
         console.error(e);
@@ -308,17 +267,12 @@
       }
     }
 
-    function cancelEvent() {
-      el("event-form").classList.add("hidden");
-    }
-
-    // Debug helper from desktop console: testSave()
-    window.testSave = function() {
-      const id = "test123";
-      const event = { id, title: "Test Event", start: "2025-08-15" };
-      set(ref(db, "events/" + id), event)
-        .then(() => { console.log("Test event saved."); showStatus("Test event saved.", true); return loadEvents(false); })
-        .catch((e) => { console.error(e); showStatus(e.message, false); });
+    // Expose for desktop debugging
+    window.testSaveSpan = function() {
+      const id = "trip";
+      set(ref(db, "events/" + id), {
+        id, title: "Trip", start: "2025-08-10", end: "2025-08-16", allDay: true
+      });
     };
   </script>
 </body>
