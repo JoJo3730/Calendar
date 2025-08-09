@@ -36,9 +36,8 @@
     #status.err { color:var(--err); }
     .hidden { display:none; }
 
-    /* Google button-ish */
     #btn-google { background:#fff; border:1px solid #dadce0; }
-    #btn-google span { display:inline-block; vertical-align:middle; }
+    #toolbar { display:flex; gap:8px; justify-content:flex-end; margin-bottom:8px; }
   </style>
 </head>
 <body>
@@ -71,6 +70,11 @@
       <button id="btn-save">Save</button>
       <button id="btn-cancel">Cancel</button>
     </div>
+  </div>
+
+  <!-- Small toolbar above calendar -->
+  <div id="toolbar" class="hidden">
+    <button id="btn-refresh">Refresh</button>
   </div>
 
   <div id="calendar"></div>
@@ -116,16 +120,16 @@
       statusEl.textContent = msg;
       statusEl.classList.remove('hidden','ok','err');
       statusEl.classList.add(ok ? 'ok' : 'err');
-      setTimeout(() => statusEl.classList.add('hidden'), ok ? 2000 : 5000);
+      setTimeout(() => statusEl.classList.add('hidden'), ok ? 2500 : 6000);
     }
 
-    // Detect iOS Safari-ish (popups are flaky)
+    // Detect iOS Safari-ish
     const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
     const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
     let calendar;
     document.addEventListener("DOMContentLoaded", async () => {
-      // Handle Google redirect sign-in result if we came back from Google
+      // Handle Google redirect result
       try {
         const result = await getRedirectResult(auth);
         if (result && result.user) {
@@ -133,7 +137,6 @@
           showStatus("Logged in with Google.", true);
         }
       } catch (e) {
-        // If redirect flow failed, show it (rare)
         if (e && e.message) showStatus(e.message, false);
       }
 
@@ -147,7 +150,7 @@
           el("event-form").classList.remove("hidden");
           el("event-id").value = "";
           el("event-title").value = "";
-          el("event-date").value = info.dateStr; // YYYY-MM-DD (iOS-friendly)
+          el("event-date").value = info.dateStr; // YYYY-MM-DD
         },
         eventClick: (info) => {
           if (!auth.currentUser) { showStatus("Please log in to delete.", false); return; }
@@ -174,28 +177,22 @@
       const email = el("auth-email").value.trim();
       const password = el("auth-password").value;
       signInWithEmailAndPassword(auth, email, password)
-        .then((u) => { authStatusEl.textContent = "Welcome, " + (u.user.email || ""); showStatus("Logged in.", true); /* loadEvents runs in auth listener */ })
+        .then((u) => { authStatusEl.textContent = "Welcome, " + (u.user.email || ""); showStatus("Logged in.", true); })
         .catch((e) => { authStatusEl.textContent = e.message; showStatus(e.message, false); });
     };
 
-    // NEW: Google Sign-In
     el("btn-google").onclick = async () => {
       try {
         if (isIOS || isSafari) {
-          // safer on iOS/Safari
           await signInWithRedirect(auth, googleProvider);
         } else {
           await signInWithPopup(auth, googleProvider);
           showStatus("Logged in with Google.", true);
         }
       } catch (e) {
-        // If popups blocked, fall back to redirect automatically
         if (e?.code === 'auth/popup-blocked') {
-          try {
-            await signInWithRedirect(auth, googleProvider);
-          } catch (err) {
-            showStatus(err.message, false);
-          }
+          try { await signInWithRedirect(auth, googleProvider); }
+          catch (err) { showStatus(err.message, false); }
         } else {
           showStatus(e.message, false);
         }
@@ -208,18 +205,21 @@
         showStatus("Logged out.", true);
         calendar.removeAllEvents();
         el("event-form").classList.add("hidden");
+        el("toolbar").classList.add("hidden");
       });
     };
 
-    // Only load events AFTER Firebase confirms we are logged in
+    // Load only AFTER login
     onAuthStateChanged(auth, (user) => {
       if (user) {
         authStatusEl.textContent = "Welcome, " + (user.email || "");
         el("event-form").classList.remove("hidden");
-        loadEvents(); // now safe to touch the DB
+        el("toolbar").classList.remove("hidden");
+        loadEvents(true); // fresh load on login
       } else {
         authStatusEl.textContent = "";
         el("event-form").classList.add("hidden");
+        el("toolbar").classList.add("hidden");
         calendar && calendar.removeAllEvents();
       }
     });
@@ -227,6 +227,7 @@
     // ====== DATA FUNCTIONS ======
     el("btn-save").onclick = () => saveEvent();
     el("btn-cancel").onclick = () => cancelEvent();
+    el("btn-refresh").onclick = () => loadEvents(false);
 
     function saveEvent() {
       if (!auth.currentUser) { showStatus("Please log in to save.", false); return; }
@@ -237,23 +238,74 @@
 
       const event = { id, title, start: date };
       set(ref(db, "events/" + id), event)
-        .then(() => { cancelEvent(); showStatus("Saved!", true); return loadEvents(); })
+        .then(() => { cancelEvent(); showStatus("Saved!", true); return loadEvents(false); })
         .catch((e) => showStatus(e.message, false));
     }
 
-    function loadEvents() {
-      // One-time fetch: avoids stale listeners and works well on mobile
-      return get(ref(db, "events"))
-        .then((snapshot) => {
-          const data = snapshot.val() || {};
-          const events = Object.values(data);
-          calendar.removeAllEvents();
-          calendar.addEventSource(events);
-        })
-        .catch((e) => {
-          console.error(e);
-          showStatus(e.message || "Failed to load events.", false);
-        });
+    function normalizeEvent(obj) {
+      // Accept legacy { date } and map to { start }
+      const start = obj.start || obj.date;
+      const title = obj.title;
+      const id = obj.id || String(Date.now());
+      return { id, title, start };
+    }
+
+    function isValidEvent(e) {
+      // Basic checks; FC will ignore bad items anyway
+      if (!e) return false;
+      if (typeof e.title !== 'string' || e.title.trim() === '') return false;
+      if (typeof e.start !== 'string') return false;
+      // YYYY-MM-DD
+      return /^\d{4}-\d{2}-\d{2}$/.test(e.start);
+    }
+
+    async function loadEvents(isInitial) {
+      if (!auth.currentUser) return;
+
+      try {
+        const snap = await get(ref(db, "events"));
+        const data = snap.val() || {};
+        const rawEvents = Object.values(data);
+
+        let fixed = 0, ok = 0, bad = 0;
+        const events = [];
+
+        // Normalize, count, and optionally fix legacy rows in-memory
+        for (const obj of rawEvents) {
+          const normalized = normalizeEvent(obj);
+          const needsFix = (!obj.start && obj.date);
+          if (isValidEvent(normalized)) {
+            events.push(normalized);
+            ok++;
+            // Optionally auto-fix legacy {date} -> {start} in DB
+            if (needsFix && normalized.id) {
+              try {
+                await set(ref(db, "events/" + normalized.id), normalized);
+                fixed++;
+              } catch (_) { /* ignore fix failures */ }
+            }
+          } else {
+            bad++;
+          }
+        }
+
+        calendar.removeAllEvents();
+        calendar.addEventSource(events);
+
+        // Helpful status line so you know what's happening on mobile
+        const msg = `Loaded ${ok} event(s)` +
+                    (fixed ? `, fixed ${fixed}` : '') +
+                    (bad ? `, skipped ${bad}` : '');
+        showStatus(msg, true);
+
+        // On first load, if nothing appears but DB has items, tell user
+        if (isInitial && ok === 0 && rawEvents.length > 0) {
+          showStatus("Found events, but none were valid for display. Check titles/dates.", false);
+        }
+      } catch (e) {
+        console.error(e);
+        showStatus(e.message || "Failed to load events.", false);
+      }
     }
 
     function cancelEvent() {
@@ -265,7 +317,7 @@
       const id = "test123";
       const event = { id, title: "Test Event", start: "2025-08-15" };
       set(ref(db, "events/" + id), event)
-        .then(() => { console.log("Test event saved."); showStatus("Test event saved.", true); return loadEvents(); })
+        .then(() => { console.log("Test event saved."); showStatus("Test event saved.", true); return loadEvents(false); })
         .catch((e) => { console.error(e); showStatus(e.message, false); });
     };
   </script>
