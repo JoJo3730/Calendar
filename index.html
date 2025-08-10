@@ -13,10 +13,10 @@
   <link rel="icon" type="image/png" href="family-icon-192x192.png"/>
 
   <style>
-    :root { --ok:#0a7a0a; --err:#b00020; }
+    :root { --ok:#0a7a0a; --err:#b00020; --muted:#6b7280; }
     body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; padding: 20px; }
     h2 { margin: 0 0 16px; }
-    #calendar { max-width: 900px; margin: 16px auto; }
+    #calendar { max-width: 1000px; margin: 16px auto; }
     .fc-event { cursor: pointer; }
 
     /* Auth */
@@ -26,17 +26,23 @@
     .hidden { display:none !important; }
 
     /* Form */
-    #event-form { background:#f5f5f5; padding:12px; border-radius:8px; margin:16px 0; }
-    label { display:block; margin-top:8px; }
-    input[type="text"], input[type="date"], input[type="time"], button { width:100%; padding:10px; font-size:16px; box-sizing:border-box; }
+    #event-form { background:#f5f5f5; padding:12px; border-radius:8px; margin:16px auto; max-width:1000px; }
+    label { display:block; margin-top:8px; font-weight:600; }
+    input[type="text"], input[type="date"], input[type="time"], select, button { width:100%; padding:10px; font-size:16px; box-sizing:border-box; }
     .inline { display:flex; gap:8px; align-items:center; }
+    .form-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+    .muted { color:var(--muted); font-size:12px; margin-top:2px; }
 
-    /* Status + toolbars */
+    /* Status + toolbar */
     #status { margin:8px 0; font-size:14px; }
     #status.ok { color:var(--ok); }
     #status.err { color:var(--err); }
-    #toolbar { display:flex; gap:8px; justify-content:flex-end; margin-bottom:8px; }
+    #toolbar { display:flex; gap:8px; justify-content:flex-end; margin:8px auto; max-width:1000px; }
     #btn-google { background:#fff; border:1px solid #dadce0; }
+
+    /* Tiny color dot in select */
+    .who-option { padding-left:28px; position:relative; }
+    .who-option::before { content:""; position:absolute; left:8px; top:50%; transform:translateY(-50%); width:12px; height:12px; border-radius:50%; }
   </style>
 </head>
 <body>
@@ -64,7 +70,11 @@
     <label>Title</label>
     <input type="text" id="event-title" placeholder="e.g., Dentist, Practice, Dinner">
 
-    <div class="inline">
+    <label>Who</label>
+    <select id="event-who"></select>
+    <div class="muted">Pick a person to color-code the event.</div>
+
+    <div class="inline" style="margin-top:8px;">
       <input type="checkbox" id="event-all-day" checked>
       <label for="event-all-day" style="margin:0;">All day</label>
     </div>
@@ -85,9 +95,10 @@
       <input type="time" id="event-time-end" value="10:00">
     </div>
 
-    <div class="row" style="margin-top:8px;">
+    <div class="form-actions">
       <button id="btn-save">Save</button>
-      <button id="btn-cancel">Cancel</button>
+      <button id="btn-cancel" type="button">Cancel</button>
+      <button id="btn-delete" class="hidden" type="button">Delete</button>
     </div>
   </div>
 
@@ -133,14 +144,37 @@
       setTimeout(() => statusEl.classList.add('hidden'), ok ? 2500 : 6000);
     }
 
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+    // Family members + colors (client-only; DB stores just 'who')
+    const PEOPLE = ["JoJo","Lovi","MaiMai","Carol","Jase","LB"];
+    const COLORS = {
+      JoJo:"#34a853", Lovi:"#4285f4", MaiMai:"#fbbc05",
+      Carol:"#ea4335", Jase:"#9c27b0", LB:"#00acc1"
+    };
+
+    // Populate the "Who" select with colored dots
+    const whoSelect = el('event-who');
+    function renderWhoOptions() {
+      whoSelect.innerHTML = '<option value="">— select —</option>' +
+        PEOPLE.map(name => `<option value="${name}" class="who-option" data-color="${COLORS[name]}">${name}</option>`).join('');
+      // Apply inline dot colors (for iOS/Android consistency)
+      Array.from(whoSelect.options).forEach(opt => {
+        if (opt.dataset.color) opt.style.backgroundImage =
+          `radial-gradient(circle at 12px 50%, ${opt.dataset.color} 0 6px, transparent 7px)`;
+      });
+    }
+    renderWhoOptions();
+
     // Toggle time fields when all-day changes
     const allDayCb = el('event-all-day');
     const timeStartWrap = el('time-start-wrap');
     const timeEndWrap = el('time-end-wrap');
     allDayCb.addEventListener('change', () => {
-      const on = !allDayCb.checked;
-      timeStartWrap.classList.toggle('hidden', !on);
-      timeEndWrap.classList.toggle('hidden', !on);
+      const showTimes = !allDayCb.checked;
+      timeStartWrap.classList.toggle('hidden', !showTimes);
+      timeEndWrap.classList.toggle('hidden', !showTimes);
     });
 
     // Helpers
@@ -153,10 +187,9 @@
       return ymd(d);
     }
 
+    // Calendar
     let calendar;
-
     document.addEventListener("DOMContentLoaded", async () => {
-      // Handle Google redirect result
       try {
         const res = await getRedirectResult(auth);
         if (res?.user) { authStatusEl.textContent = "Welcome, " + (res.user.email || ""); showStatus("Logged in with Google.", true); }
@@ -164,63 +197,52 @@
 
       calendar = new FullCalendar.Calendar(el("calendar"), {
         initialView: "dayGridMonth",
+
         headerToolbar: {
           left: "prev,next today",
           center: "title",
           right: "dayGridMonth,timeGridWeek,timeGridDay"
         },
+
+        // Make day names and numbers clickable to switch views
+        navLinks: true,              // <— NEW: click day/week names to navigate
+        navLinkDayClick: (date) => { // also handle click on title nav links
+          calendar.changeView("timeGridDay", date);
+        },
+
         slotMinTime: "06:00:00",
         slotMaxTime: "22:00:00",
         nowIndicator: true,
         expandRows: true,
         dayMaxEvents: true,
 
-        // NEW: make events draggable/resizable
+        // Drag & resize
         editable: true,
         eventStartEditable: true,
         eventDurationEditable: true,
 
-        // NEW: allow selecting a time range to prefill form
+        // Range select to prefill form
         selectable: true,
         selectMirror: true,
-        select: (selectionInfo) => {
-          if (!auth.currentUser) { showStatus("Please log in to add events.", false); return; }
-          const start = selectionInfo.start;
-          const end   = selectionInfo.end;
-          const isTimed = selectionInfo.allDay === false && (start.getHours() !== 0 || end.getHours() !== 0);
 
-          el("event-id").value = "";
-          el("event-title").value = "";
-          el("event-date-start").value = ymd(start);
-          el("event-date-end").value   = ymd(end);
-
-          // Decide all-day vs timed based on selection granularity
-          if (selectionInfo.view.type === "timeGridDay" || isTimed) {
-            allDayCb.checked = false;
-            timeStartWrap.classList.remove('hidden');
-            timeEndWrap.classList.remove('hidden');
-            el("event-time-start").value = hm(start);
-            // if same time, default to +1 hour
-            el("event-time-end").value = hm(end) || `${pad2((start.getHours()+1)%24)}:${pad2(start.getMinutes())}`;
-          } else {
-            allDayCb.checked = true;
-            timeStartWrap.classList.add('hidden');
-            timeEndWrap.classList.add('hidden');
-            // inclusive end UX
-            el("event-date-end").value = ymd(start);
-          }
-
-          el("event-form").classList.remove("hidden");
+        // Color events by 'who'
+        eventDidMount: (info) => {
+          const who = info.event.extendedProps.who;
+          const color = COLORS[who] || "#4b5563";
+          info.el.style.backgroundColor = color;
+          info.el.style.borderColor = color;
+          info.el.style.color = "#fff";
         },
 
+        // Force Month/Week → Day (hourly) on date clicks; in Day, open form for that time
         dateClick: (info) => {
           const current = calendar.view.type;
           if (current === "timeGridDay") {
             if (!auth.currentUser) { showStatus("Please log in to add events.", false); return; }
-            // Prefill for clicked hour (timeGridDay gives a Date with time)
             const d = info.date;
             el("event-id").value = "";
             el("event-title").value = "";
+            whoSelect.value = "";
             el("event-date-start").value = ymd(d);
             el("event-date-end").value   = ymd(d);
             el("event-time-start").value = `${pad2(d.getHours())}:00`;
@@ -230,38 +252,77 @@
             timeEndWrap.classList.remove('hidden');
             el("event-form").classList.remove("hidden");
           } else {
-            // Jump to hourly day view for that date
-            calendar.changeView("timeGridDay", info.date);
+            calendar.changeView("timeGridDay", info.date); // <— ensure it *switches* to hourly
           }
         },
 
+        select: (selectionInfo) => {
+          if (!auth.currentUser) { showStatus("Please log in to add events.", false); return; }
+          const start = selectionInfo.start;
+          const end   = selectionInfo.end;
+          const isTimed = selectionInfo.view.type !== "dayGridMonth";
+
+          el("event-id").value = "";
+          el("event-title").value = "";
+          whoSelect.value = "";
+          el("event-date-start").value = ymd(start);
+          el("event-date-end").value   = ymd(end);
+
+          if (isTimed) {
+            allDayCb.checked = false;
+            timeStartWrap.classList.remove('hidden');
+            timeEndWrap.classList.remove('hidden');
+            el("event-time-start").value = hm(start);
+            el("event-time-end").value   = hm(end);
+          } else {
+            allDayCb.checked = true;
+            timeStartWrap.classList.add('hidden');
+            timeEndWrap.classList.add('hidden');
+            el("event-date-end").value = ymd(start);
+          }
+
+          el("event-form").classList.remove("hidden");
+        },
+
+        // Inline edit: clicking an event opens the form prefilled
         eventClick: (info) => {
-          if (!auth.currentUser) { showStatus("Please log in to delete.", false); return; }
-          if (confirm("Delete this event?")) {
-            remove(ref(db, "events/" + info.event.id))
-              .then(() => { info.event.remove(); showStatus("Deleted.", true); })
-              .catch((e) => showStatus(e.message, false));
+          const e = info.event;
+          if (!auth.currentUser) { showStatus("Please log in to edit.", false); return; }
+
+          el("event-id").value = e.id;
+          el("event-title").value = e.title || "";
+          whoSelect.value = e.extendedProps.who || "";
+
+          if (e.allDay) {
+            allDayCb.checked = true;
+            timeStartWrap.classList.add('hidden');
+            timeEndWrap.classList.add('hidden');
+            el("event-date-start").value = ymd(e.start);
+            el("event-date-end").value = e.end ? ymd(new Date(e.end)) : ymd(e.start);
+          } else {
+            allDayCb.checked = false;
+            timeStartWrap.classList.remove('hidden');
+            timeEndWrap.classList.remove('hidden');
+            el("event-date-start").value = ymd(e.start);
+            el("event-date-end").value   = ymd(e.end || e.start);
+            el("event-time-start").value = hm(e.start);
+            el("event-time-end").value   = hm(e.end || e.start);
           }
+
+          el("btn-delete").classList.remove("hidden");
+          el("event-form").classList.remove("hidden");
         },
 
-        // NEW: persist changes after drag/move or resize
+        // Persist drag/move or resize
         eventDrop: async (info) => {
           if (!auth.currentUser) { info.revert(); showStatus("Please log in to edit.", false); return; }
-          try {
-            await saveEventFromCalendar(info.event);
-            showStatus("Updated.", true);
-          } catch (e) {
-            console.error(e); info.revert(); showStatus("Update failed.", false);
-          }
+          try { await saveEventFromCalendar(info.event); showStatus("Updated.", true); }
+          catch (e) { console.error(e); info.revert(); showStatus("Update failed.", false); }
         },
         eventResize: async (info) => {
           if (!auth.currentUser) { info.revert(); showStatus("Please log in to edit.", false); return; }
-          try {
-            await saveEventFromCalendar(info.event);
-            showStatus("Updated.", true);
-          } catch (e) {
-            console.error(e); info.revert(); showStatus("Update failed.", false);
-          }
+          try { await saveEventFromCalendar(info.event); showStatus("Updated.", true); }
+          catch (e) { console.error(e); info.revert(); showStatus("Update failed.", false); }
         }
       });
 
@@ -269,10 +330,6 @@
     });
 
     // ----- Auth -----
-    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-    const googleProvider = new GoogleAuthProvider();
-
     el("btn-signup").onclick = () => {
       const email = el("auth-email").value.trim();
       const password = el("auth-password").value;
@@ -333,23 +390,21 @@
     el("btn-refresh").onclick = () => loadEvents(false);
     el("btn-back-month").onclick = () => calendar.changeView("dayGridMonth");
 
-    // ----- Save / Load -----
+    // ----- Save / Load / Delete -----
     function buildDbRecordFromCalEvent(fcEvent) {
-      // Map FullCalendar event -> DB record
       const id = fcEvent.id;
       const isAllDay = fcEvent.allDay;
+      const who = fcEvent.extendedProps.who || "";
 
       if (isAllDay) {
         const startDate = ymd(fcEvent.start);
-        // FullCalendar all-day end is exclusive (may be null for 1-day)
         const endDateExclusive = fcEvent.end ? ymd(fcEvent.end) : null;
-        const rec = { id, title: fcEvent.title || "", start: startDate, allDay: true };
-        if (endDateExclusive) rec.end = endDateExclusive; // keep exclusive in DB for consistency
+        const rec = { id, title: fcEvent.title || "", start: startDate, allDay: true, who };
+        if (endDateExclusive) rec.end = endDateExclusive;
         return rec;
       } else {
-        // Timed: use local datetimes
         const start = fcEvent.start;
-        const end   = fcEvent.end || new Date(start.getTime()); // if missing, same time
+        const end   = fcEvent.end || new Date(start.getTime());
         const rec = {
           id,
           title: fcEvent.title || "",
@@ -357,80 +412,41 @@
           end: ymd(end),
           allDay: false,
           timeStart: hm(start),
-          timeEnd: hm(end)
+          timeEnd: hm(end),
+          who
         };
         return rec;
       }
     }
 
     async function saveEventFromCalendar(fcEvent) {
+      // preserve 'who' from extendedProps
       const rec = buildDbRecordFromCalEvent(fcEvent);
       await set(ref(db, "events/" + rec.id), rec);
     }
 
-    function saveEvent() {
-      if (!auth.currentUser) { showStatus("Please log in to save.", false); return; }
-
-      const id = el("event-id").value || Date.now().toString();
-      const title = el("event-title").value.trim();
-      const startDate = el("event-date-start").value;
-      const endDateInc = el("event-date-end").value;
-      const allDay = el("event-all-day").checked;
-      const tStart = el("event-time-start").value;
-      const tEnd = el("event-time-end").value;
-
-      if (!title || !startDate) { showStatus("Title and start date are required.", false); return; }
-
-      // DB record (what we store)
-      const dbRecord = { id, title, start: startDate, allDay: !!allDay };
-      if (allDay) {
-        if (endDateInc && endDateInc >= startDate) dbRecord.end = addDays(endDateInc, 1); // exclusive
-      } else {
-        const endDate = endDateInc || startDate;
-        dbRecord.end = endDate;
-        dbRecord.timeStart = tStart || "00:00";
-        if (tEnd) dbRecord.timeEnd = tEnd;
-      }
-
-      set(ref(db, "events/" + id), dbRecord)
-        .then(() => {
-          el("event-form").classList.add("hidden");
-          showStatus("Saved!", true);
-          return loadEvents(false);
-        })
-        .catch((e) => showStatus(e.message, false));
-    }
-    el("btn-save").onclick = saveEvent;
-    el("btn-cancel").onclick = () => el("event-form").classList.add("hidden");
-
-    function normalizeEvent(obj) {
-      // Build a FullCalendar event from DB record
-      const startDate = obj.start || obj.date;
-      const e = { id: obj.id, title: obj.title, allDay: !!obj.allDay };
-
+    function toCalendarEventFromDb(obj) {
+      // Build a FullCalendar event from DB record; attach extendedProps.who
+      const who = obj.who || "";
       if (!obj.allDay && obj.timeStart) {
-        // Timed event
-        const endDate = obj.end || startDate;
+        const endDate = obj.end || obj.start;
         const tEnd = obj.timeEnd || obj.timeStart;
-        e.start = `${startDate}T${obj.timeStart}`;
-        e.end = `${endDate}T${tEnd}`;
-        e.allDay = false;
+        return {
+          id: obj.id, title: obj.title, allDay: false, extendedProps: { who },
+          start: `${obj.start}T${obj.timeStart}`, end: `${endDate}T${tEnd}`
+        };
       } else {
-        // All-day event; DB stores exclusive end already if present
-        e.start = startDate;
-        if (obj.end) e.end = obj.end;
-        e.allDay = true;
+        return {
+          id: obj.id, title: obj.title, allDay: true, extendedProps: { who },
+          start: obj.start, end: obj.end || null
+        };
       }
-      return e;
     }
 
-    function isValidEvent(e) {
+    function isValidEventForCalendar(e) {
       if (!e || typeof e.title !== 'string' || !e.title.trim()) return false;
-      if (e.allDay) {
-        return typeof e.start === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(e.start);
-      } else {
-        return typeof e.start === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(e.start);
-      }
+      if (e.allDay) return typeof e.start === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(e.start);
+      return typeof e.start === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(e.start);
     }
 
     async function loadEvents(isInitial) {
@@ -439,20 +455,18 @@
         const snap = await get(ref(db, "events"));
         const data = snap.val() || {};
         const raw = Object.values(data);
-        let ok=0, bad=0;
-        const events = [];
 
+        const events = [];
+        let ok=0, bad=0;
         for (const obj of raw) {
-          const e = normalizeEvent(obj);
-          if (isValidEvent(e)) { events.push(e); ok++; }
+          const ev = toCalendarEventFromDb(obj);
+          if (isValidEventForCalendar(ev)) { events.push(ev); ok++; }
           else { bad++; }
         }
 
         calendar.removeAllEvents();
         calendar.addEventSource(events);
-
-        const msg = `Loaded ${ok} event(s)` + (bad ? `, skipped ${bad}` : '');
-        showStatus(msg, true);
+        showStatus(`Loaded ${ok} event(s)` + (bad ? `, skipped ${bad}` : ''), true);
 
         if (isInitial && ok===0 && raw.length>0) {
           showStatus("Found events, but none valid to display. Check fields.", false);
@@ -463,14 +477,59 @@
       }
     }
 
-    // Quick console helper for testing
-    window.testTimed = function() {
-      const id = "timed-" + Date.now();
-      set(ref(db, "events/" + id), {
-        id, title: "Timed test", start: "2025-08-11", end: "2025-08-11",
-        allDay: false, timeStart: "14:00", timeEnd: "15:30"
-      }).then(() => loadEvents(false));
-    };
+    // Form → Save/Delete
+    function gatherFormToDbRecord() {
+      const id = el("event-id").value || Date.now().toString();
+      const title = el("event-title").value.trim();
+      const who = whoSelect.value || "";
+      const startDate = el("event-date-start").value;
+      const endDateInc = el("event-date-end").value;
+      const allDay = el("event-all-day").checked;
+      const tStart = el("event-time-start").value;
+      const tEnd = el("event-time-end").value;
+
+      if (!title || !startDate) { showStatus("Title and start date are required.", false); return null; }
+
+      const rec = { id, title, start: startDate, allDay: !!allDay, who };
+      if (allDay) {
+        if (endDateInc && endDateInc >= startDate) rec.end = addDays(endDateInc, 1); // exclusive
+      } else {
+        const endDate = endDateInc || startDate;
+        rec.end = endDate;
+        rec.timeStart = tStart || "00:00";
+        if (tEnd) rec.timeEnd = tEnd;
+      }
+      return rec;
+    }
+
+    function dbRecordToCalendarEvent(rec) {
+      return toCalendarEventFromDb(rec);
+    }
+
+    async function saveFromForm() {
+      if (!auth.currentUser) { showStatus("Please log in to save.", false); return; }
+      const rec = gatherFormToDbRecord();
+      if (!rec) return;
+      await set(ref(db, "events/" + rec.id), rec);
+      el("event-form").classList.add("hidden");
+      showStatus("Saved!", true);
+      await loadEvents(false);
+    }
+
+    async function deleteFromForm() {
+      if (!auth.currentUser) { showStatus("Please log in to delete.", false); return; }
+      const id = el("event-id").value;
+      if (!id) { el("event-form").classList.add("hidden"); return; }
+      await remove(ref(db, "events/" + id));
+      el("event-form").classList.add("hidden");
+      showStatus("Deleted.", true);
+      await loadEvents(false);
+    }
+
+    el("btn-save").onclick = saveFromForm;
+    el("btn-cancel").onclick = () => el("event-form").classList.add("hidden");
+    el("btn-delete").onclick = deleteFromForm;
+
   </script>
 </body>
 </html>
