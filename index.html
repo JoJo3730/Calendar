@@ -31,14 +31,12 @@
     .hidden { display:none; }
     #btn-google { background:#fff; border:1px solid #dadce0; }
     #toolbar { display:flex; gap:8px; justify-content:flex-end; margin-bottom:8px; }
-    /* version footer */
-    footer { max-width:900px; margin:24px auto 8px; color:#555; font-size:12px; text-align:center; }
-    footer code { background:#f2f2f2; padding:2px 6px; border-radius:4px; }
   </style>
 </head>
 <body>
   <h2>👪 Family Calendar</h2>
 
+  <!-- AUTH -->
   <div id="auth-section">
     <input type="email" id="auth-email" placeholder="Email" autocomplete="username">
     <input type="password" id="auth-password" placeholder="Password" autocomplete="current-password">
@@ -74,25 +72,7 @@
 
   <div id="calendar"></div>
 
-  <!-- Version footer -->
-  <footer>
-    <span id="version-label">Version:</span>
-    <code id="version"></code>
-    &nbsp;•&nbsp;
-    <span id="deployed-label">Deployed:</span>
-    <code id="deployed"></code>
-  </footer>
-
   <script type="module">
-    /* ====== BUMP THIS EACH DEPLOY ====== */
-    const VERSION = "v1.0.0";                // <— update this string each time you push
-    const DEPLOYED_AT = "2025-08-08 18:45";  // <— optional: set a friendly timestamp
-
-    // Show version in footer
-    document.getElementById("version").textContent = VERSION;
-    document.getElementById("deployed").textContent = DEPLOYED_AT;
-
-    /* ========== Firebase ========== */
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import {
       getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult,
@@ -144,7 +124,7 @@
           el("event-id").value = "";
           el("event-title").value = "";
           el("event-date-start").value = info.dateStr;
-          el("event-date-end").value = info.dateStr; // prefill
+          el("event-date-end").value = info.dateStr; // prefill for convenience
         },
         eventClick: (info) => {
           if (!auth.currentUser) { showStatus("Please log in to delete.", false); return; }
@@ -158,7 +138,7 @@
       calendar.render();
     });
 
-    // Auth UI handlers
+    // auth buttons
     el("btn-signup").onclick = () => {
       const email = el("auth-email").value.trim();
       const password = el("auth-password").value;
@@ -191,19 +171,23 @@
         authStatusEl.textContent = "Logged out.";
         showStatus("Logged out.", true);
         calendar.removeAllEvents();
+        el("auth-section").classList.remove("hidden");   // <—— show auth again
         el("event-form").classList.add("hidden");
         el("toolbar").classList.add("hidden");
       });
     };
 
+    // 🔑 Toggle UI based on auth state
     onAuthStateChanged(auth, (user) => {
       if (user) {
         authStatusEl.textContent = "Welcome, " + (user.email || "");
+        el("auth-section").classList.add("hidden");      // <—— hide login area
         el("event-form").classList.remove("hidden");
         el("toolbar").classList.remove("hidden");
         loadEvents(true);
       } else {
         authStatusEl.textContent = "";
+        el("auth-section").classList.remove("hidden");   // <—— show login area
         el("event-form").classList.add("hidden");
         el("toolbar").classList.add("hidden");
         calendar && calendar.removeAllEvents();
@@ -214,7 +198,7 @@
     el("btn-cancel").onclick = () => el("event-form").classList.add("hidden");
     el("btn-refresh").onclick = () => loadEvents(false);
 
-    // Helper: add 1 day (YYYY-MM-DD) for exclusive end conversion
+    // helper: add days to YYYY-MM-DD
     function addDays(ymd, days) {
       const d = new Date(ymd + "T00:00:00");
       d.setDate(d.getDate() + days);
@@ -226,7 +210,6 @@
 
     function saveEvent() {
       if (!auth.currentUser) { showStatus("Please log in to save.", false); return; }
-
       const id = el("event-id").value || Date.now().toString();
       const title = el("event-title").value.trim();
       const start = el("event-date-start").value;
@@ -234,10 +217,7 @@
       if (!title || !start) { showStatus("Title and start date are required.", false); return; }
 
       let event = { id, title, start, allDay: true };
-      if (endInclusive && endInclusive >= start) {
-        // FullCalendar all-day uses exclusive end
-        event.end = addDays(endInclusive, 1);
-      }
+      if (endInclusive && endInclusive >= start) event.end = addDays(endInclusive, 1);
 
       set(ref(db, "events/" + id), event)
         .then(() => { el("event-form").classList.add("hidden"); showStatus("Saved!", true); return loadEvents(false); })
@@ -245,7 +225,6 @@
     }
 
     function normalizeEvent(obj) {
-      // Legacy {date} -> {start}
       const start = obj.start || obj.date;
       const res = { id: obj.id || String(Date.now()), title: obj.title, start, allDay: true };
       if (obj.end) res.end = obj.end;
@@ -267,29 +246,22 @@
         const raw = Object.values(data);
         let ok=0, bad=0;
         const events = [];
-
         for (const obj of raw) {
           const e = normalizeEvent(obj);
-          if (isValidEvent(e)) { events.push(e); ok++; }
-          else { bad++; }
+          if (isValidEvent(e)) { events.push(e); ok++; } else { bad++; }
         }
-
         calendar.removeAllEvents();
         calendar.addEventSource(events);
-
         const msg = `Loaded ${ok} event(s)` + (bad ? `, skipped ${bad}` : '');
         showStatus(msg, true);
-
-        if (isInitial && ok===0 && raw.length>0) {
-          showStatus("Found events, but none valid to display. Check fields.", false);
-        }
+        if (isInitial && ok===0 && raw.length>0) showStatus("Found events, but none valid to display. Check fields.", false);
       } catch (e) {
         console.error(e);
         showStatus(e.message || "Failed to load events.", false);
       }
     }
 
-    // Expose for desktop debugging (optional)
+    // for desktop testing
     window.testSaveSpan = function() {
       const id = "trip";
       set(ref(db, "events/" + id), {
