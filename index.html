@@ -23,17 +23,13 @@
       --btn:#1363df;
       --btn-text:#fff;
     }
-    body {
-      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
-      padding: 16px;
-      color:#111;
-    }
-    h2 { margin: 0 0 12px; }
+    body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; padding:16px; color:#111; }
+    h2 { margin:0 0 12px; }
 
     /* Auth */
     #auth-section input { width:100%; padding:10px; font-size:16px; margin:6px 0; box-sizing:border-box; }
     .row { display:flex; gap:8px; flex-wrap:wrap; }
-    .row > button { flex:1; min-width: 140px; }
+    .row > button { flex:1; min-width:140px; }
     .hidden { display:none !important; }
 
     /* Status line */
@@ -42,51 +38,25 @@
     #status.err { color:var(--err); }
 
     /* Event form */
-    #event-card {
-      background:var(--light);
-      border-radius:10px;
-      padding:12px;
-      margin:12px 0 10px;
-      border:1px solid var(--border);
-    }
+    #event-card { background:var(--light); border-radius:10px; padding:12px; margin:12px 0 10px; border:1px solid var(--border); }
     label { display:block; margin-top:10px; font-weight:600; }
-    input[type="text"], input[type="date"], input[type="time"], button {
-      width:100%; padding:10px; font-size:16px; box-sizing:border-box;
-    }
+    input[type="text"], input[type="date"], input[type="time"], button { width:100%; padding:10px; font-size:16px; box-sizing:border-box; }
     .btn-row { display:flex; gap:10px; margin-top:12px; }
     .btn-primary { background:var(--btn); color:var(--btn-text); border:none; border-radius:8px; }
     .btn-secondary { background:#fff; border:1px solid var(--border); border-radius:8px; }
     .btn-danger { background:#e54848; color:#fff; border:none; border-radius:8px; }
 
     /* Single-row toolbar */
-    #toolbar {
-      display:flex;
-      gap:8px;
-      justify-content:center;
-      margin:12px 0 10px;
-    }
-    #toolbar button {
-      flex:0 1 auto;
-      min-width:110px;
-      padding:10px 12px;
-      border:1px solid var(--border);
-      border-radius:8px;
-      background:#fff;
-      font-weight:600;
-    }
+    #toolbar { display:flex; gap:8px; justify-content:center; margin:12px 0 10px; flex-wrap:wrap; }
+    #toolbar button { flex:0 1 auto; min-width:110px; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:#fff; font-weight:600; }
 
     /* Calendar */
-    #calendar { max-width: 1000px; margin: 0 auto; }
-    .fc .fc-toolbar-title { font-size: 1.6rem; }
+    #calendar { max-width:1000px; margin:0 auto; }
+    .fc .fc-toolbar-title { font-size:1.6rem; }
     .fc-event { cursor:pointer; }
 
-    /* Footer version */
-    .foot {
-      text-align:center;
-      color:#666;
-      margin-top:14px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-    }
+    /* Footer */
+    .foot { text-align:center; color:#666; margin-top:14px; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
   </style>
 </head>
 <body>
@@ -145,18 +115,17 @@
     </div>
   </div>
 
-  <!-- Single-row toolbar -->
+  <!-- Toolbar -->
   <div id="toolbar" class="hidden">
     <button id="btn-refresh">Refresh</button>
     <button id="btn-month">Month</button>
+    <button id="btn-week">Week</button>
     <button id="btn-day">Day</button>
   </div>
 
   <div id="calendar"></div>
 
-  <div class="foot">
-    Version: v1.2.1
-  </div>
+  <div class="foot">Version: v1.3.0</div>
 
   <!-- Firebase (modular) -->
   <script type="module">
@@ -199,26 +168,31 @@
 
     let calendar;
 
-    // Calendar setup
     function initCalendar() {
       calendar = new FullCalendar.Calendar(el("calendar"), {
         initialView: "dayGridMonth",
+        height: "auto",
+        contentHeight: "auto",
+
+        /* Force full-month grid (never fewer than 5 rows; FC uses 6) */
+        fixedWeekCount: true,
+        showNonCurrentDates: true,
+
         headerToolbar: {
           left: "prev,next today",
           center: "title",
-          right: ""       // we use our own Month/Day buttons above
+          right: ""
         },
         nowIndicator: true,
         selectable: false,
+
         dateClick: (info) => {
-          // Go to Day view for the clicked date; prefill form
           calendar.changeView("timeGridDay", info.dateStr);
           if (!auth.currentUser) return;
           openFormForNew(info.dateStr);
         },
         eventClick: (info) => {
-          // Edit the event (no immediate delete)
-          info.jsEvent.preventDefault();
+          info.preventDefault();
           if (!auth.currentUser) { showStatus("Please log in to edit.", false); return; }
           const e = info.event;
           populateFormFromEvent(e);
@@ -249,47 +223,28 @@
       const start = ev.start;
       const end = ev.end;
 
-      // Dates
       el("event-date-start").value = toYMD(start);
       el("event-date-end").value = end ? toYMD(isAllDay(ev) ? new Date(end.getTime() - 86400000) : end) : toYMD(start);
 
-      // Times
       if (isAllDay(ev)) {
         el("event-time-start").value = "";
         el("event-time-end").value = "";
+        calendar.changeView("dayGridMonth", toYMD(start));
       } else {
         el("event-time-start").value = toHM(start);
         el("event-time-end").value = end ? toHM(end) : "";
+        calendar.changeView("timeGridDay", toYMD(start));
       }
-
-      // Jump to proper view/date
-      calendar.changeView(isAllDay(ev) ? "dayGridMonth" : "timeGridDay", toYMD(start));
     }
 
     function isAllDay(ev) {
-      // FullCalendar flags allDay, but sometimes timed events come through with times
-      return ev.allDay === true || (!ev.start || ev.start.getHours() === 0 && ev.start.getMinutes() === 0 && !ev.end);
+      return ev.allDay === true || (!ev.start || (ev.start.getHours() === 0 && ev.start.getMinutes() === 0 && !ev.end));
     }
 
-    // Helpers to format dates/times
-    function toYMD(d) {
-      const y = d.getFullYear();
-      const m = String(d.getMonth()+1).padStart(2,'0');
-      const day = String(d.getDate()).padStart(2,'0');
-      return `${y}-${m}-${day}`;
-    }
-    function toHM(d) {
-      const h = String(d.getHours()).padStart(2,'0');
-      const m = String(d.getMinutes()).padStart(2,'0');
-      return `${h}:${m}`;
-    }
-    function addDays(ymd, days) {
-      const d = new Date(ymd + "T00:00:00");
-      d.setDate(d.getDate() + days);
-      return toYMD(d);
-    }
+    function toYMD(d){ const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; }
+    function toHM(d){ const h=String(d.getHours()).padStart(2,'0'),m=String(d.getMinutes()).padStart(2,'0'); return `${h}:${m}`; }
+    function addDays(ymd, days){ const d=new Date(ymd+"T00:00:00"); d.setDate(d.getDate()+days); return toYMD(d); }
 
-    // Compose event object for DB and FC
     function buildEventFromForm() {
       const id = el("event-id").value || Date.now().toString();
       const title = el("event-title").value.trim();
@@ -298,26 +253,17 @@
       const sTime = el("event-time-start").value;
       const eTime = el("event-time-end").value;
 
-      if (!title || !sDate) {
-        showStatus("Title and start date are required.", false);
-        return null;
-      }
+      if (!title || !sDate) { showStatus("Title and start date are required.", false); return null; }
 
       let startISO, endISO, allDay;
 
       if (sTime) {
-        // Timed event
         allDay = false;
         startISO = `${sDate}T${sTime}:00`;
-        if (eDateInc && eTime) {
-          endISO = `${eDateInc}T${eTime}:00`;
-        } else if (eTime) {
-          endISO = `${sDate}T${eTime}:00`;
-        } else {
-          endISO = null;
-        }
+        if (eDateInc && eTime) endISO = `${eDateInc}T${eTime}:00`;
+        else if (eTime) endISO = `${sDate}T${eTime}:00`;
+        else endISO = null;
       } else {
-        // All-day event (exclusive end)
         allDay = true;
         startISO = sDate;
         const endInc = eDateInc && eDateInc >= sDate ? eDateInc : sDate;
@@ -326,11 +272,9 @@
 
       const ev = { id, title, start: startISO, allDay };
       if (endISO) ev.end = endISO;
-
       return ev;
     }
 
-    // DB operations
     async function loadEvents(showMsg) {
       if (!auth.currentUser) return;
       try {
@@ -345,87 +289,55 @@
         showStatus(e.message || "Failed to load events.", false);
       }
     }
+    function normalizeEvent(obj){ if(!obj||!obj.title||!obj.start) return null; return { id:obj.id||String(Date.now()), title:obj.title, start:obj.start, end:obj.end||null, allDay:!!obj.allDay }; }
 
-    function normalizeEvent(obj) {
-      if (!obj || !obj.title || !obj.start) return null;
-      return {
-        id: obj.id || String(Date.now()),
-        title: obj.title,
-        start: obj.start,
-        end: obj.end || null,
-        allDay: !!obj.allDay
-      };
-    }
-
-    // Wire up UI buttons
+    // Buttons
     el("btn-save").onclick = async () => {
       if (!auth.currentUser) { showStatus("Please log in to save.", false); return; }
-      const ev = buildEventFromForm();
-      if (!ev) return;
+      const ev = buildEventFromForm(); if (!ev) return;
       try {
         await set(ref(db, "events/" + ev.id), ev);
         el("event-card").classList.add("hidden");
         el("btn-delete").classList.add("hidden");
         await loadEvents(false);
         showStatus("Saved!", true);
-      } catch (e) {
-        showStatus(e.message, false);
-      }
+      } catch (e) { showStatus(e.message, false); }
     };
-
-    el("btn-cancel").onclick = () => {
-      el("event-card").classList.add("hidden");
-      el("btn-delete").classList.add("hidden");
-    };
-
+    el("btn-cancel").onclick = () => { el("event-card").classList.add("hidden"); el("btn-delete").classList.add("hidden"); };
     el("btn-delete").onclick = async () => {
-      const id = el("event-id").value;
-      const title = el("event-title").value || "this event";
-      if (!id) return;
-      if (!confirm(`Delete "${title}"?`)) return;
-      try {
-        await remove(ref(db, "events/" + id));
-        el("event-card").classList.add("hidden");
-        el("btn-delete").classList.add("hidden");
-        await loadEvents(false);
-        showStatus("Deleted.", true);
-      } catch (e) {
-        showStatus(e.message, false);
-      }
+      const id = el("event-id").value; const title = el("event-title").value || "this event";
+      if (!id) return; if (!confirm(`Delete "${title}"?`)) return;
+      try { await remove(ref(db, "events/" + id)); el("event-card").classList.add("hidden"); el("btn-delete").classList.add("hidden"); await loadEvents(false); showStatus("Deleted.", true); }
+      catch (e) { showStatus(e.message, false); }
     };
-
     el("btn-refresh").onclick = () => loadEvents(true);
-    el("btn-month").onclick = () => calendar.changeView("dayGridMonth");
-    el("btn-day").onclick   = () => calendar.changeView("timeGridDay");
+    el("btn-month").onclick   = () => calendar.changeView("dayGridMonth");
+    el("btn-week").onclick    = () => calendar.changeView("timeGridWeek");
+    el("btn-day").onclick     = () => calendar.changeView("timeGridDay");
 
-    // Auth buttons
+    // Auth
     el("btn-signup").onclick = () => {
-      const email = el("auth-email").value.trim();
-      const password = el("auth-password").value;
+      const email = el("auth-email").value.trim(); const password = el("auth-password").value;
       createUserWithEmailAndPassword(auth, email, password)
         .then(u => { authStatusEl.textContent = "Signed up as " + (u.user.email || ""); showStatus("Signed up.", true); })
         .catch(e => { authStatusEl.textContent = e.message; showStatus(e.message, false); });
     };
-
     el("btn-login").onclick = () => {
-      const email = el("auth-email").value.trim();
-      const password = el("auth-password").value;
+      const email = el("auth-email").value.trim(); const password = el("auth-password").value;
       signInWithEmailAndPassword(auth, email, password)
         .then(u => { authStatusEl.textContent = "Welcome, " + (u.user.email || ""); showStatus("Logged in.", true); })
         .catch(e => { authStatusEl.textContent = e.message; showStatus(e.message, false); });
     };
-
+    const googleProvider = new GoogleAuthProvider();
     el("btn-google").onclick = async () => {
       try {
         if (isIOS || isSafari) await signInWithRedirect(auth, googleProvider);
         else await signInWithPopup(auth, googleProvider);
       } catch (e) {
-        if (e?.code === 'auth/popup-blocked') {
-          try { await signInWithRedirect(auth, googleProvider); } catch (err) { showStatus(err.message, false); }
-        } else showStatus(e.message, false);
+        if (e?.code === 'auth/popup-blocked') { try { await signInWithRedirect(auth, googleProvider); } catch (err) { showStatus(err.message, false); } }
+        else showStatus(e.message, false);
       }
     };
-
     el("btn-logout").onclick = () => {
       signOut(auth).then(() => {
         showStatus("Logged out.", true);
@@ -438,7 +350,6 @@
       });
     };
 
-    // Auth state
     onAuthStateChanged(auth, (user) => {
       if (user) {
         welcomeEl.textContent = `Welcome, ${user.email || ""}`;
@@ -454,13 +365,9 @@
       }
     });
 
-    // Kick things off
     (async function start() {
       initCalendar();
-      try {
-        const res = await getRedirectResult(auth);
-        if (res?.user) showStatus("Logged in with Google.", true);
-      } catch {}
+      try { const res = await getRedirectResult(auth); if (res?.user) showStatus("Logged in with Google.", true); } catch {}
     })();
   </script>
 </body>
