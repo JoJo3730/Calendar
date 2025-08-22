@@ -45,7 +45,7 @@
     <button id="btnSignup">Sign Up</button>
     <button id="btnLogin">Log In</button>
     <button id="btnGoogle">Sign in with Google</button>
-    <button id="btnLogout">Log Out</button>
+    <button id="btnLogout" class="hidden">Log Out</button>
   </div>
   <div id="who" class="hidden"></div>
 
@@ -130,7 +130,7 @@
     const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
     const $ = id => document.getElementById(id);
-    const status = $('status'), who = $('who'), authBox = $('auth'), formBox = $('form');
+    const status = $('status'), who = $('who'), formBox = $('form');
 
     function toast(msg, ok=true){
       status.textContent = msg;
@@ -311,14 +311,17 @@
     $('btnLogout').onclick = ()=> signOut(auth);
 
     onAuthStateChanged(auth, async (user)=>{
+      const loginIds = ['email','pass','btnSignup','btnLogin','btnGoogle'];
       if(user){
         who.textContent = `Welcome, ${user.email || ''}`;
         who.classList.remove('hidden');
-        authBox.classList.add('hidden');
+        loginIds.forEach(id=>$(id).classList.add('hidden'));
+        $('btnLogout').classList.remove('hidden');
         await loadEvents();
       }else{
         who.classList.add('hidden');
-        authBox.classList.remove('hidden');
+        loginIds.forEach(id=>$(id).classList.remove('hidden'));
+        $('btnLogout').classList.add('hidden');
         calendar && calendar.removeAllEvents();
       }
     });
