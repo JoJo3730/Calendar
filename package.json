@@ -1,0 +1,8 @@
+{
+  "name": "calendar",
+  "version": "1.4.0",
+  "scripts": {
+    "build": "node set-version.js",
+    "test": "echo 'No tests'"
+  }
+}
