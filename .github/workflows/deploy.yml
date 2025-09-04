@@ -1,1 +1,85 @@
+name: Bump version & deploy (Pages-from-branch)
 
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: {}
+
+jobs:
+  bump-and-push:
+    # Avoid loops if the last commit was made by the workflow itself
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Bump Version in index.html
+        shell: bash
+        run: |
+          set -e
+
+          FILE="index.html"
+          if [ ! -f "$FILE" ]; then
+            echo "::error::index.html not found at repo root"
+            exit 1
+          fi
+
+          # Extract existing version like: "Version: v1.2.3"
+          if grep -Eq 'Version:\s*v[0-9]+\.[0-9]+\.[0-9]+' "$FILE"; then
+            read MAJ MIN PAT < <(grep -oE 'Version:\s*v[0-9]+\.[0-9]+\.[0-9]+' "$FILE" \
+              | head -1 \
+              | sed -E 's/.*v([0-9]+)\.([0-9]+)\.([0-9]+)/\1 \2 \3/')
+            PAT=$((PAT+1))
+            NEWVER="Version: v${MAJ}.${MIN}.${PAT}"
+
+            # Replace the version text
+            sed -i -E "s/Version:\s*v[0-9]+\.[0-9]+\.[0-9]+/${NEWVER}/" "$FILE"
+            echo "Bumped to: ${NEWVER}"
+          else
+            # If you don't have that footer line yet, you can add it here:
+            echo "<!-- Version footer inserted by CI -->" >> "$FILE"
+            echo "<div style=\"text-align:center;opacity:.7;\">Version: v1.0.0</div>" >> "$FILE"
+            echo "Inserted initial version footer."
+          fi
+
+          # Update "Deployed: YYYY-MM-DD HH:MM" (UTC). If not present, append it below the version.
+          TS="$(date -u '+%Y-%m-%d %H:%M')"
+          if grep -Eq 'Deployed:\s*[0-9]{4}-[0-9]{2}-[0-9]{2}\s[0-9]{2}:[0-9]{2}' "$FILE"; then
+            sed -i -E "s/Deployed:\s*[0-9-]{10}\s[0-9:]{5}/Deployed: ${TS}/" "$FILE"
+          else
+            # Try to place right after the Version line; if not found just append
+            awk -v ts="${TS}" '
+              {
+                print $0
+                if ($0 ~ /Version:\s*v[0-9]+\.[0-9]+\.[0-9]+/ && !printed) {
+                  print "<div style=\"text-align:center;opacity:.7;\">Deployed: " ts "</div>"
+                  printed=1
+                }
+              }
+              END { if (!printed) print "<div style=\"text-align:center;opacity:.7;\">Deployed: " ts "</div>" }
+            ' "$FILE" > "${FILE}.tmp"
+            mv "${FILE}.tmp" "$FILE"
+          fi
+
+          # Show diff (useful in logs)
+          git --no-pager diff -- "$FILE" || true
+
+      - name: Commit & Push
+        shell: bash
+        run: |
+          set -e
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git add index.html
+          git commit -m "ci: bump version and update deployed timestamp [skip ci]"
+          git push
