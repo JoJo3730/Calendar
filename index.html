@@ -3,115 +3,139 @@
 <head>
   <meta charset="UTF-8" />
   <title>👪 Family Calendar</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <link rel="icon" type="image/png" href="family-icon-192x192.png" />
 
   <!-- FullCalendar -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+
+  <!-- PWA bits (optional) -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#ffffff"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <link rel="icon" type="image/png" href="family-icon-192x192.png"/>
 
   <style>
-    :root{--ok:#0a7a0a;--err:#b00020}
-    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;margin:0;padding:16px 16px 40px}
-    h1{margin:0 0 10px;font-size:28px}
-    #auth{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0 8px}
-    #auth input{grid-column:1 / -1;padding:12px;font-size:16px;border:1px solid #ddd;border-radius:10px}
-    #auth button{padding:12px;border-radius:12px;border:1px solid #e6e6e6;background:#fff;font-size:18px}
-    #who{margin:8px 0 6px;font-weight:600}
-    .row{display:flex;gap:10px;margin:6px 0 12px}
-    .row > button{flex:1;padding:12px 10px;border-radius:14px;border:1px solid #e6e6e6;background:#fff;font-size:18px}
-    #calendar{max-width:980px;margin:10px auto}
-    #status{margin:8px 0;font-size:14px}
-    #status.ok{color:var(--ok)} #status.err{color:var(--err)} .hidden{display:none}
-    /* Event form */
-    #form{max-width:980px;margin:10px auto;background:#f7f7f7;border-radius:12px;padding:12px}
-    #form h3{margin:0 0 8px}
-    label{display:block;margin-top:8px;font-size:14px}
-    input[type="text"],input[type="date"],input[type="time"]{width:100%;padding:10px;font-size:16px;border:1px solid #ddd;border-radius:10px;box-sizing:border-box}
-    .form-row{display:flex;gap:10px}
-    .form-row > div{flex:1}
-    .form-buttons{display:flex;gap:10px;margin-top:10px}
-    .form-buttons button{flex:1;padding:12px;border-radius:12px;border:1px solid #e6e6e6;background:#fff;font-size:18px}
-    footer{max-width:980px;margin:24px auto 0;text-align:center;color:#666}
+    :root { --ok:#0a7a0a; --err:#b00020; }
+    body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; padding: 16px; }
+    h1 { margin: 0 0 8px; font-size: 22px; }
+    #calendar { max-width: 900px; margin: 16px auto; }
+    .fc-event { cursor: pointer; }
+    .toolbar { display:flex; gap:8px; justify-content:center; margin:10px 0 14px; }
+    .toolbar button { padding:10px 14px; border-radius:12px; border:1px solid #e0e0e0; background:#fff; font-size:16px; }
+    #status { margin:8px 0; font-size:14px; }
+    #status.ok { color:var(--ok); }
+    #status.err { color:var(--err); }
+    .hidden { display:none !important; }
+
+    /* Auth bar */
+    #auth-bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px; }
+    #auth-bar input { padding:10px; font-size:16px; }
+    #auth-bar button { padding:10px 14px; border-radius:12px; border:1px solid #e0e0e0; background:#fff; }
+
+    /* Form */
+    #event-form { background:#f7f7f7; padding:12px; border-radius:12px; max-width:900px; margin:0 auto 10px; }
+    #event-form label { display:block; margin:10px 0 4px; font-weight:600; }
+    #event-form input[type="text"],
+    #event-form input[type="date"],
+    #event-form input[type="time"] { width:100%; padding:10px; font-size:16px; box-sizing:border-box; }
+    .row { display:flex; gap:10px; flex-wrap:wrap; }
+    .row > div { flex:1 1 260px; min-width:240px; }
+    .btn-row { display:flex; gap:10px; margin-top:10px; }
+    .btn-row button { flex:1; padding:12px; border-radius:12px; border:1px solid #d9d9d9; background:#fff; font-size:16px; }
+    .switch { display:flex; align-items:center; gap:10px; margin-top:6px; }
+    .dow { display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
+    .chip { border:1px solid #d6d6d6; padding:6px 10px; border-radius:20px; user-select:none; }
+    .chip input { margin-right:6px; }
+    .muted { color:#6b6b6b; font-size:13px; }
   </style>
 </head>
 <body>
   <h1>👪 Family Calendar</h1>
 
-  <!-- Auth -->
-  <div id="auth">
-    <input id="email" type="email" placeholder="Email" autocomplete="username">
-    <input id="pass" type="password" placeholder="Password" autocomplete="current-password">
-    <button id="btnSignup">Sign Up</button>
-    <button id="btnLogin">Log In</button>
-    <button id="btnGoogle">Sign in with Google</button>
-    <button id="btnLogout">Log Out</button>
-  </div>
-  <div id="who" class="hidden"></div>
-
-  <!-- Top toolbar -->
-  <div class="row">
-    <button id="btnRefresh">Refresh</button>
-    <button id="btnMonth">Month</button>
-    <button id="btnWeek">Week</button>
-    <button id="btnDay">Day</button>
+  <!-- Auth bar -->
+  <div id="auth-bar">
+    <input type="email" id="auth-email" placeholder="Email" autocomplete="username">
+    <input type="password" id="auth-password" placeholder="Password" autocomplete="current-password">
+    <button id="btn-signup">Sign Up</button>
+    <button id="btn-login">Log In</button>
+    <button id="btn-google">Sign in with Google</button>
+    <button id="btn-logout">Log Out</button>
+    <span id="auth-status" class="muted"></span>
   </div>
 
-  <!-- Status -->
   <div id="status" class="hidden"></div>
 
-  <!-- Add / Edit form -->
-  <div id="form" class="hidden">
-    <h3>Add / Edit Event</h3>
-    <input type="hidden" id="evId">
-    <label>Title:
-      <input id="evTitle" type="text" placeholder="e.g., Vacation">
-    </label>
-    <div class="form-row">
+  <!-- Add/Edit form -->
+  <div id="event-form" class="hidden">
+    <input type="hidden" id="event-id">
+    <label>Title</label>
+    <input type="text" id="event-title" placeholder="e.g., Vacation">
+
+    <div class="row">
       <div>
-        <label>Start Date:
-          <input id="evStartDate" type="date">
-        </label>
+        <label>Start Date</label>
+        <input type="date" id="event-date-start">
       </div>
       <div>
-        <label>End Date (optional, inclusive):
-          <input id="evEndDate" type="date">
-        </label>
+        <label>End Date (optional, inclusive)</label>
+        <input type="date" id="event-date-end">
       </div>
     </div>
-    <div class="form-row">
+
+    <div class="row">
       <div>
-        <label>Start Time (optional):
-          <input id="evStartTime" type="time">
-        </label>
+        <label>Start Time (optional)</label>
+        <input type="time" id="event-time-start" step="60">
       </div>
       <div>
-        <label>End Time (optional):
-          <input id="evEndTime" type="time">
-        </label>
+        <label>End Time (optional)</label>
+        <input type="time" id="event-time-end" step="60">
       </div>
     </div>
-    <div class="form-buttons">
-      <button id="btnSave">Save</button>
-      <button id="btnDelete">Delete</button>
-      <button id="btnCancel">Cancel</button>
+
+    <div class="switch">
+      <input type="checkbox" id="repeat-weekly">
+      <label for="repeat-weekly">Repeat weekly</label>
     </div>
+
+    <div id="repeat-block" class="hidden">
+      <div class="dow" id="dow-list">
+        <!-- day chips created by JS -->
+      </div>
+      <div class="row">
+        <div>
+          <label>Repeat until (optional, inclusive)</label>
+          <input type="date" id="repeat-until">
+        </div>
+      </div>
+      <div class="muted">Recurring events ignore the single “End Date” above. Use “Repeat until” instead. For timed recurring events, set start/end time.</div>
+    </div>
+
+    <div class="btn-row">
+      <button id="btn-save">Save</button>
+      <button id="btn-cancel">Cancel</button>
+    </div>
+  </div>
+
+  <!-- View toolbar -->
+  <div class="toolbar" id="view-toolbar">
+    <button id="btn-refresh">Refresh</button>
+    <button id="btn-month">Month</button>
+    <button id="btn-week">Week</button>
+    <button id="btn-day">Day</button>
   </div>
 
   <div id="calendar"></div>
 
-  <footer>Version: v1.4.0</footer>
-
-  <!-- Firebase (modular) -->
   <script type="module">
-    import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    /******** Firebase ********/
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import {
       getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult,
       createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    import {getDatabase, ref, get, set, remove} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import { getDatabase, ref, set, get, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-    // --- Firebase config (your project) ---
     const firebaseConfig = {
       apiKey: "AIzaSyB6dFxZiIuwfobxGRxcfaNsoUeDiDV_1dQ",
       authDomain: "familycalendar-1587d.firebaseapp.com",
@@ -126,207 +150,297 @@
     const auth = getAuth(app);
     const db = getDatabase(app);
     const googleProvider = new GoogleAuthProvider();
-    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
-    const $ = id => document.getElementById(id);
-    const status = $('status'), who = $('who'), authBox = $('auth'), formBox = $('form');
+    /******** Helpers ********/
+    const $ = (id) => document.getElementById(id);
+    const statusEl = $('status');
+    const authStatusEl = $('auth-status');
 
-    function toast(msg, ok=true){
-      status.textContent = msg;
-      status.classList.remove('hidden','ok','err');
-      status.classList.add(ok?'ok':'err');
-      setTimeout(()=>status.classList.add('hidden'), ok?2200:4500);
+    function toast(msg, ok=false) {
+      statusEl.textContent = msg;
+      statusEl.className = ok ? 'ok' : 'err';
+      statusEl.classList.remove('hidden');
+      setTimeout(() => statusEl.classList.add('hidden'), ok ? 2200 : 4800);
     }
 
-    // --- FullCalendar setup ---
+    function addDays(ymd, n) {
+      const d = new Date(ymd + 'T00:00:00');
+      d.setDate(d.getDate() + n);
+      const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
+      return `${y}-${m}-${day}`;
+    }
+
+    function timeOrNull(input) { return input && input.trim() ? input.trim() : null; }
+
+    function showFormForDate(ymd) {
+      $('event-id').value = '';
+      $('event-title').value = '';
+      $('event-date-start').value = ymd;
+      $('event-date-end').value = ymd;
+      $('event-time-start').value = '';
+      $('event-time-end').value = '';
+      $('repeat-weekly').checked = false;
+      $('repeat-until').value = '';
+      toggleRepeatBlock();
+      $('event-form').classList.remove('hidden');
+    }
+
+    function toggleRepeatBlock() {
+      $('repeat-block').classList.toggle('hidden', !$('repeat-weekly').checked);
+    }
+
+    /******** FullCalendar ********/
     let calendar;
-    function dayNumberOnly(arg){
-      // only show day-of-month, used for week header
-      return { html: `<div style="font-weight:600">${arg.date.getDate()}</div>` };
-    }
 
-    function makeCalendar(){
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Handle Google redirect signin results
+      try {
+        const res = await getRedirectResult(auth);
+        if (res?.user) {
+          authStatusEl.textContent = "Welcome, " + (res.user.email || "");
+          toast("Logged in with Google.", true);
+        }
+      } catch (e) {
+        if (e?.message) toast(e.message, false);
+      }
+
+      // Create DOW chips
+      const labels = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      const dowList = $('dow-list');
+      labels.forEach((lbl, idx) => {
+        const div = document.createElement('label');
+        div.className = 'chip';
+        div.innerHTML = `<input type="checkbox" value="${idx}">${lbl}`;
+        dowList.appendChild(div);
+      });
+
+      $('repeat-weekly').addEventListener('change', toggleRepeatBlock);
+
       calendar = new FullCalendar.Calendar($('calendar'), {
         initialView: 'dayGridMonth',
-        height: 'auto',
-        // Month view: always render 6 weeks
-        fixedWeekCount: true,
-        views: {
-          dayGridMonth: {
-            fixedWeekCount: true
-          },
-          timeGridWeek: {
-            // Week header shows only day number
-            dayHeaderContent: dayNumberOnly,
-            slotMinTime: "00:00:00",
-            slotMaxTime: "24:00:00"
-          },
-          timeGridDay: {
-            slotMinTime: "00:00:00",
-            slotMaxTime: "24:00:00"
+        fixedWeekCount: true,   // always 6 weeks
+        headerToolbar: false,
+        dayMaxEventRows: true,
+        firstDay: 0,            // Sunday
+        buttonText: { today: 'today' },
+        datesSet: () => {},
+
+        // Click empty day → open form (prefilled)
+        dateClick: (info) => {
+          if (!auth.currentUser) { toast('Please log in to add events.', false); return; }
+          showFormForDate(info.dateStr);
+        },
+
+        // Click existing event → open Edit/Delete prompt
+        eventClick: (info) => {
+          if (!auth.currentUser) { toast('Please log in to edit.', false); return; }
+          const ev = info.event;
+
+          // Load form with event props
+          $('event-id').value = ev.id || '';
+          $('event-title').value = ev.title || '';
+
+          // If recurring (daysOfWeek exists) use startRecur/endRecur + times
+          const dow = ev.extendedProps.daysOfWeek || ev._def.recurringDef?.typeData?.daysOfWeek;
+          const isRecurring = Array.isArray(dow) && dow.length;
+
+          if (isRecurring) {
+            $('repeat-weekly').checked = true;
+            toggleRepeatBlock();
+
+            // check chips
+            Array.from($('dow-list').querySelectorAll('input[type=checkbox]')).forEach(cb => {
+              cb.checked = dow.includes(parseInt(cb.value));
+            });
+
+            const startRecur = ev.extendedProps.startRecur || ev._def.recurringDef?.typeData?.startRecur;
+            const endRecurEx = ev.extendedProps.endRecur || ev._def.recurringDef?.typeData?.endRecur;
+
+            $('event-date-start').value = startRecur ? startRecur : '';
+            $('event-date-end').value = ''; // unused for recurring
+            $('repeat-until').value = endRecurEx ? addDays(endRecurEx, -1) : '';
+
+            const st = ev.extendedProps.startTime || ev._def.recurringDef?.typeData?.startTime;
+            const et = ev.extendedProps.endTime || ev._def.recurringDef?.typeData?.endTime;
+            $('event-time-start').value = st || '';
+            $('event-time-end').value = et || '';
+          } else {
+            $('repeat-weekly').checked = false;
+            toggleRepeatBlock();
+
+            const startISO = ev.startStr?.slice(0,10) || '';
+            const endISOex = ev.endStr?.slice(0,10) || '';
+            $('event-date-start').value = startISO;
+            $('event-date-end').value = endISOex ? addDays(endISOex, -1) : startISO;
+
+            const st = ev.extendedProps.startTime;
+            const et = ev.extendedProps.endTime;
+            $('event-time-start').value = st || '';
+            $('event-time-end').value = et || '';
           }
-        },
-        dateClick(info){
-          if(!auth.currentUser){ toast('Please log in to add.', false); return; }
-          openForm({ start: info.dateStr });
-        },
-        eventClick(info){
-          if(!auth.currentUser){ toast('Please log in to edit.', false); return; }
-          const e = info.event;
-          openForm({
-            id: e.id,
-            title: e.title,
-            start: e.start,
-            end: e.end,
-            allDay: e.allDay
-          });
+
+          $('event-form').classList.remove('hidden');
+
+          // Offer delete from calendar UI (confirmation inside Save/Delete handlers)
+          info.jsEvent.preventDefault();
         }
       });
+
       calendar.render();
-    }
 
-    // --- Form helpers ---
-    function ymd(d){ // returns YYYY-MM-DD
-      const yyyy=d.getFullYear(), mm=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0');
-      return `${yyyy}-${mm}-${dd}`;
-    }
-    function addDays(ymdStr, n){
-      const d=new Date(ymdStr+"T00:00:00"); d.setDate(d.getDate()+n); return ymd(d);
-    }
-    function openForm({id='', title='', start='', end='', allDay=true}){
-      $('evId').value = id;
-      $('evTitle').value = title || '';
-      let sDate = '', sTime = '', eDate = '', eTime = '';
-      if(start){
-        const s = (start instanceof Date)? start : new Date(start);
-        sDate = ymd(s);
-        sTime = (!allDay && start instanceof Date)? s.toTimeString().slice(0,5) : '';
-      }
-      if(end){
-        const e = (end instanceof Date)? end : new Date(end);
-        // FullCalendar exclusive end for all-day; adjust back one for display if no times
-        if(allDay && (!sTime && !(e instanceof Date && e.getHours()+e.getMinutes()>0))){
-          e.setDate(e.getDate()-1);
-        }
-        eDate = ymd(e);
-        eTime = (!allDay && end instanceof Date)? e.toTimeString().slice(0,5) : '';
-      }
-      $('evStartDate').value = sDate || ymd(new Date());
-      $('evEndDate').value   = eDate || sDate || ymd(new Date());
-      $('evStartTime').value = sTime;
-      $('evEndTime').value   = eTime;
-      formBox.classList.remove('hidden');
-      window.scrollTo({top:0, behavior:'smooth'});
-    }
-    function closeForm(){ formBox.classList.add('hidden'); }
+      // Toolbar view switches
+      $('btn-month').onclick = () => calendar.changeView('dayGridMonth');
+      $('btn-week').onclick  = () => calendar.changeView('timeGridWeek');
+      $('btn-day').onclick   = () => calendar.changeView('timeGridDay');
+      $('btn-refresh').onclick = () => loadEvents();
 
-    async function loadEvents(){
-      if(!auth.currentUser) return;
-      const snap = await get(ref(db,"events"));
-      const data = snap.val() || {};
-      const list = Object.values(data);
-      const events = list.map(obj=>{
-        // support both all-day and timed
-        const e = { id: obj.id, title: obj.title };
-        if(obj.startTime){ // timed event
-          e.start = obj.start; e.end = obj.end || null; e.allDay = false;
-        }else{
-          e.start = obj.start;
-          e.end = obj.end || null;
-          e.allDay = true;
+      // Auth buttons
+      $('btn-signup').onclick = () => {
+        const email = $('auth-email').value.trim();
+        const password = $('auth-password').value;
+        createUserWithEmailAndPassword(auth, email, password)
+          .then(u => { authStatusEl.textContent = "Signed up as " + (u.user.email || ""); toast("Signed up.", true); })
+          .catch(e => { authStatusEl.textContent = e.message; toast(e.message, false); });
+      };
+
+      $('btn-login').onclick = () => {
+        const email = $('auth-email').value.trim();
+        const password = $('auth-password').value;
+        signInWithEmailAndPassword(auth, email, password)
+          .then(u => { authStatusEl.textContent = "Welcome, " + (u.user.email || ""); toast("Logged in.", true); })
+          .catch(e => { authStatusEl.textContent = e.message; toast(e.message, false); });
+      };
+
+      const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      $('btn-google').onclick = async () => {
+        try {
+          if (isIOS || isSafari) await signInWithRedirect(auth, googleProvider);
+          else await signInWithPopup(auth, googleProvider);
+          toast("Logged in with Google.", true);
+        } catch (e) {
+          if (e?.code === 'auth/popup-blocked') {
+            try { await signInWithRedirect(auth, googleProvider); } catch (err) { toast(err.message, false); }
+          } else toast(e.message, false);
         }
-        return e;
+      };
+
+      $('btn-logout').onclick = () => {
+        signOut(auth).then(() => {
+          authStatusEl.textContent = "Logged out.";
+          toast("Logged out.", true);
+          calendar.removeAllEvents();
+          $('event-form').classList.add('hidden');
+        });
+      };
+
+      onAuthStateChanged(auth, (user) => {
+        const loggedIn = !!user;
+        // Hide email/password when logged in, show logout + welcome
+        $('auth-email').classList.toggle('hidden', loggedIn);
+        $('auth-password').classList.toggle('hidden', loggedIn);
+        $('btn-signup').classList.toggle('hidden', loggedIn);
+        $('btn-login').classList.toggle('hidden', loggedIn);
+        $('btn-google').classList.toggle('hidden', loggedIn);
+        $('btn-logout').classList.toggle('hidden', !loggedIn);
+        authStatusEl.textContent = loggedIn ? ("Welcome, " + (user.email || "")) : "";
+
+        if (loggedIn) {
+          $('event-form').classList.add('hidden');  // open only on date click or event click
+          loadEvents();
+        } else {
+          calendar.removeAllEvents();
+        }
       });
-      calendar.removeAllEvents();
-      calendar.addEventSource(events);
-    }
 
-    function collectEventFromForm(){
-      const id = $('evId').value || String(Date.now());
-      const title = $('evTitle').value.trim();
-      const sDate = $('evStartDate').value;
-      const eDate = $('evEndDate').value;
-      const sTime = $('evStartTime').value;
-      const eTime = $('evEndTime').value;
-
-      if(!title || !sDate){ toast("Title and start date are required.", false); return null; }
-
-      let allDay = !(sTime && eTime); // both times present -> timed
-      let start, end;
-
-      if(allDay){
-        start = sDate;
-        if(eDate && eDate >= sDate) end = addDays(eDate, 1); // exclusive end
-      }else{
-        start = `${sDate}T${sTime}`;
-        end   = `${eDate || sDate}T${eTime}`;
-      }
-
-      const record = { id, title, start };
-      if(end) record.end = end;
-      if(!allDay){ record.startTime = sTime; record.endTime = eTime; } // markers for loader
-
-      return { id, record, forCalendar: { id, title, start, end: end || null, allDay } };
-    }
-
-    // --- Wire buttons ---
-    $('btnSave').onclick = async ()=>{
-      if(!auth.currentUser){ toast('Please log in.', false); return; }
-      const pkg = collectEventFromForm(); if(!pkg) return;
-      await set(ref(db,"events/"+pkg.id), pkg.record);
-      await loadEvents(); closeForm(); toast('Saved!', true);
-    };
-    $('btnDelete').onclick = async ()=>{
-      const id = $('evId').value;
-      if(!id){ closeForm(); return; }
-      if(!confirm('Delete this event?')) return;
-      await remove(ref(db,"events/"+id));
-      await loadEvents(); closeForm(); toast('Deleted.', true);
-    };
-    $('btnCancel').onclick = closeForm;
-
-    $('btnRefresh').onclick = ()=> loadEvents();
-    $('btnMonth').onclick   = ()=> calendar.changeView('dayGridMonth');
-    $('btnWeek').onclick    = ()=> calendar.changeView('timeGridWeek');
-    $('btnDay').onclick     = ()=> calendar.changeView('timeGridDay');
-
-    // --- Auth UI ---
-    $('btnSignup').onclick = async ()=>{
-      try{
-        await createUserWithEmailAndPassword(auth, $('email').value.trim(), $('pass').value);
-      }catch(e){ toast(e.message || 'Sign up failed', false); }
-    };
-    $('btnLogin').onclick = async ()=>{
-      try{
-        await signInWithEmailAndPassword(auth, $('email').value.trim(), $('pass').value);
-      }catch(e){ toast(e.message || 'Login failed', false); }
-    };
-    $('btnGoogle').onclick = async ()=>{
-      try{
-        if(isIOS || isSafari){ await signInWithRedirect(auth, googleProvider); }
-        else{ await signInWithPopup(auth, googleProvider); }
-      }catch(e){ toast(e.message || 'Google sign-in failed', false); }
-    };
-    $('btnLogout').onclick = ()=> signOut(auth);
-
-    onAuthStateChanged(auth, async (user)=>{
-      if(user){
-        who.textContent = `Welcome, ${user.email || ''}`;
-        who.classList.remove('hidden');
-        authBox.classList.add('hidden');
-        await loadEvents();
-      }else{
-        who.classList.add('hidden');
-        authBox.classList.remove('hidden');
-        calendar && calendar.removeAllEvents();
-      }
+      // Form buttons
+      $('btn-save').onclick = saveEvent;
+      $('btn-cancel').onclick = () => $('event-form').classList.add('hidden');
     });
 
-    // --- Init ---
-    makeCalendar();
-    // handle redirect result (Google on iOS/Safari)
-    getRedirectResult(auth).catch(()=>{});
+    /******** Save & Load ********/
+    async function saveEvent() {
+      if (!auth.currentUser) { toast("Please log in to save.", false); return; }
+
+      const id = $('event-id').value || Date.now().toString();
+      const title = $('event-title').value.trim();
+      const startDate = $('event-date-start').value;
+      const endDateInc = $('event-date-end').value;
+      const tStart = timeOrNull($('event-time-start').value);
+      const tEnd = timeOrNull($('event-time-end').value);
+      const repeat = $('repeat-weekly').checked;
+      const repeatUntilInc = $('repeat-until').value;
+
+      if (!title || !startDate) { toast("Title and start date are required.", false); return; }
+
+      let event = { id, title };
+
+      if (repeat) {
+        // Weekly recurrence
+        const days = Array.from($('dow-list').querySelectorAll('input[type=checkbox]'))
+                          .filter(cb => cb.checked)
+                          .map(cb => parseInt(cb.value));
+        if (!days.length) { toast("Pick at least one weekday for the weekly repeat.", false); return; }
+
+        event.daysOfWeek = days;  // [0..6]
+        event.allDay = !tStart && !tEnd;
+        if (tStart) event.startTime = tStart;
+        if (tEnd)   event.endTime   = tEnd;
+
+        event.startRecur = startDate;
+        if (repeatUntilInc) {
+          // endRecur is EXCLUSIVE in FC
+          event.endRecur = addDays(repeatUntilInc, 1);
+        }
+      } else {
+        // Single/explicit event
+        const allDay = !tStart && !tEnd;
+        event.allDay = allDay;
+        event.start = startDate + (tStart ? `T${tStart}` : '');
+        if (endDateInc) {
+          if (allDay) {
+            event.end = addDays(endDateInc, 1); // exclusive
+          } else if (tEnd) {
+            event.end = endDateInc + `T${tEnd}`;
+          }
+        }
+        if (tStart) event.startTime = tStart;
+        if (tEnd)   event.endTime   = tEnd;
+      }
+
+      try {
+        await set(ref(db, "events/" + id), event);
+        $('event-form').classList.add('hidden');
+        toast("Saved!", true);
+        await loadEvents();
+      } catch (e) {
+        toast(e.message, false);
+      }
+    }
+
+    async function loadEvents() {
+      if (!auth.currentUser) return;
+      try {
+        const snap = await get(ref(db, "events"));
+        const data = snap.val() || {};
+        const list = Object.values(data);
+
+        // Normalize legacy shapes
+        const evs = list.map(e => {
+          const n = { ...e };
+          // Legacy all-day end was inclusive; if 'end' exists and allDay true,
+          // assume already exclusive in DB from our code; otherwise keep as-is.
+          return n;
+        });
+
+        calendar.removeAllEvents();
+        calendar.addEventSource(evs);
+        toast(`Loaded ${evs.length} event(s).`, true);
+      } catch (e) {
+        console.error(e);
+        toast(e.message || "Failed to load events.", false);
+      }
+    }
   </script>
 </body>
 </html>
