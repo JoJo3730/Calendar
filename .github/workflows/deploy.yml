@@ -1,33 +1,63 @@
-name: Bump version & deploy
+name: Deploy (bump at deploy only)
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]   # change if your default branch is different
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
 
 jobs:
-  bump-and-push:
+  deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: Build deployable site (inject version + time)
+        run: |
+          set -e
+
+          # ---- Pick how you want the version to bump ----
+          # Simple: v1.<run_number>
+          APP_VERSION="v1.${GITHUB_RUN_NUMBER}"
+
+          # Or include short SHA:
+          # APP_VERSION="v1.${GITHUB_RUN_NUMBER}-${GITHUB_SHA::7}"
+
+          # UTC build time
+          BUILD_TIME="$(date -u '+%Y-%m-%d %H:%M UTC')"
+
+          echo "APP_VERSION=${APP_VERSION}"
+          echo "BUILD_TIME=${BUILD_TIME}"
+
+          # Make a clean output dir and copy everything
+          mkdir -p dist
+          rsync -a --delete --exclude '.git' --exclude 'dist' ./ dist/
+
+          # Replace placeholders ONLY in the deploy artifact (no commit)
+          # Your index.html should contain %APP_VERSION% and %BUILD_TIME%
+          sed -i \
+            -e "s/%APP_VERSION%/${APP_VERSION}/g" \
+            -e "s/%BUILD_TIME%/${BUILD_TIME}/g" \
+            dist/index.html
+
+          # (Optional) If you also show the version/time elsewhere, repeat sed on those files.
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          persist-credentials: false  # disable default creds
+          path: dist
 
-      - name: Set up Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Bump Version in index.html
-        run: |
-          sed -i "s/%APP_VERSION%/v1.$GITHUB_RUN_NUMBER/" index.html
-          sed -i "s/%BUILD_TIME%/$(date)/" index.html
-
-      - name: Commit & Push
-        run: |
-          git add index.html
-          git commit -m "Bump version [skip ci]" || echo "No changes to commit"
-          git push
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
