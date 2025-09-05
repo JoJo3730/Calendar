@@ -14,7 +14,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
   <link rel="icon" type="image/png" href="family-icon-192x192.png"/>
 
-  <!-- Version placeholders if you’re stamping with GitHub Actions -->
+  <!-- Version placeholders (for your GitHub Action stamping, optional) -->
   <meta name="app-version" content="%APP_VERSION%">
   <meta name="build-time"  content="%BUILD_TIME%">
 
@@ -25,7 +25,7 @@
     h1 { margin:0 0 10px; font-size:26px; font-weight:800; }
 
     /* Top auth strip */
-    #authTop { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
+    #authTop { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; flex-wrap:wrap; }
     #signedIn { display:none; align-items:center; gap:10px; }
     #signedIn .email { font-weight:600; }
     #logoutBtn { padding:6px 10px; border-radius:10px; border:1px solid var(--br); background:#fff; cursor:pointer; }
@@ -36,7 +36,7 @@
     #loginForm button { padding:10px 14px; border-radius:12px; border:1px solid var(--br); background:#fff; font-size:16px; cursor:pointer; }
 
     /* Toolbar + Title row */
-    #toolbar { display:flex; gap:10px; margin:10px 0; }
+    #toolbar { display:none; gap:10px; margin:10px 0; }
     #toolbar button { padding:10px 14px; border-radius:12px; border:1px solid var(--br); background:var(--btn); font-size:16px; flex:1 1 140px; }
     #cal-title-row { display:none; align-items:center; gap:12px; margin:10px 0 8px; }
     #cal-title-row button { padding:.5rem .75rem; border-radius:10px; border:1px solid var(--br); background:#fff; }
@@ -60,6 +60,11 @@
     #calendar { max-width:980px; }
     .fc { --fc-border-color:#e6ebf2; }
     .fc-daygrid-day-number { font-weight:600; }
+
+    /* Color legend */
+    #legend { display:none; gap:10px; flex-wrap:wrap; align-items:center; margin:8px 0 4px; }
+    .legend-item { display:flex; align-items:center; gap:8px; padding:6px 10px; border:1px solid var(--br); border-radius:20px; background:#fff; }
+    .legend-dot { width:14px; height:14px; border-radius:50%; border:1px solid #999; }
 
     footer { margin-top:20px; text-align:center; font-size:12px; color:#888; }
   </style>
@@ -86,7 +91,7 @@
   </div>
 
   <!-- View toolbar (only when signed in) -->
-  <div id="toolbar" style="display:none;">
+  <div id="toolbar">
     <button id="btnRefresh">Refresh</button>
     <button id="btnMonth">Month</button>
     <button id="btnWeek">Week</button>
@@ -100,6 +105,9 @@
     <button id="btn-next" aria-label="Next">›</button>
     <div id="cal-title"></div>
   </div>
+
+  <!-- Per-user color legend -->
+  <div id="legend"></div>
 
   <!-- Status -->
   <div id="status"></div>
@@ -144,7 +152,7 @@
   <!-- Calendar -->
   <div id="calendar"></div>
 
-  <!-- Version footer (uses stamped meta if you added the Action) -->
+  <!-- Version footer -->
   <footer>
     Version: <span id="app-version"></span> | Built: <span id="build-time"></span>
   </footer>
@@ -193,22 +201,62 @@
       setTimeout(()=>{ statusEl.style.display='none'; }, ok ? 2200 : 4800);
     }
 
+    /* ========= User color mapping =========
+       Edit this to assign family colors by email address.
+       Any user not listed here will get a deterministic fallback color.
+    */
+    const USER_COLORS = Object.freeze({
+      // "jojo@example.com": "#e57373",
+      // "lovi@example.com": "#64b5f6",
+      // "maimai@example.com": "#81c784",
+      // "carol@example.com": "#ba68c8",
+      // "jase@example.com": "#ffb74d",
+      // "lb@example.com":   "#4db6ac",
+    });
+
+    // Deterministic fallback: hash string -> HSL color
+    function colorFromString(str){
+      let h=0; for (let i=0;i<str.length;i++) h = (h*31 + str.charCodeAt(i)) >>> 0;
+      const hue = h % 360;
+      return `hsl(${hue} 70% 70%)`;
+    }
+
+    function labelFromEmail(email){
+      if(!email) return 'unknown';
+      const name = email.split('@')[0] || email;
+      return name.replace(/[._]/g,' ').toLowerCase();
+    }
+
+    // Build/update legend chips from a set of {email: color}
+    function renderLegend(colorMap){
+      const legend = $('legend');
+      legend.innerHTML = '';
+      const entries = Object.entries(colorMap);
+      if (!entries.length) { legend.style.display='none'; return; }
+      for(const [email,color] of entries){
+        const item = document.createElement('div');
+        item.className = 'legend-item';
+        item.innerHTML = `<span class="legend-dot" style="background:${color}"></span><span>${labelFromEmail(email)}</span>`;
+        legend.appendChild(item);
+      }
+      legend.style.display = 'flex';
+    }
+
     /* ========= Calendar ========= */
     let calendar;
+
     function addDays(ymdStr, n){ const d=new Date(ymdStr+"T00:00:00"); d.setDate(d.getDate()+n); const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; }
 
     function composeEventForSave(id, title, sDate, eDateInc, sTime, eTime){
-      // Return {id,title,start,end?,allDay}
       const hasTimes = sTime && eTime;
       const allDay = !hasTimes;
       const start = hasTimes ? `${sDate}T${sTime}` : sDate;
       let end = null;
-      if (eDateInc) {
-        end = hasTimes ? `${eDateInc}T${eTime || sTime}` : addDays(eDateInc, 1); // FC exclusive end if all-day
-      }
-      const rec = { id, title, start, allDay };
-      if (end) rec.end = end;
-      return rec;
+      if (eDateInc) end = hasTimes ? `${eDateInc}T${eTime || sTime}` : addDays(eDateInc, 1); // exclusive end for all-day
+      const u = auth.currentUser;
+      const base = { id, title, start, allDay, uid: u?.uid || null, email: u?.email || null };
+      if (end) base.end = end;
+      return base;
     }
 
     function weekHeaderContent(arg){
@@ -224,7 +272,7 @@
     }
 
     function formatRange(start, end){
-      const endInc = new Date(end.getTime() - 86400000); // end exclusive -> inclusive
+      const endInc = new Date(end.getTime() - 86400000);
       const sm = start.toLocaleString(undefined,{month:'short'});
       const sy = start.toLocaleString(undefined,{year:'numeric'});
       const sd = start.toLocaleString(undefined,{day:'numeric'});
@@ -301,6 +349,14 @@
           $('form').style.display = 'block';
           info.jsEvent.preventDefault();
         },
+        eventDidMount(info){
+          // ensure colors applied (in case not set earlier)
+          const email = info.event.extendedProps.email;
+          const uid   = info.event.extendedProps.uid;
+          const color = USER_COLORS[email] || colorFromString(email || uid || info.event.id);
+          info.el.style.backgroundColor = color;
+          info.el.style.borderColor = color;
+        },
         datesSet(){ updateTitle(); }
       });
       calendar.render();
@@ -322,7 +378,36 @@
       if(!auth.currentUser) return;
       const snap = await get(ref(db,"events"));
       const data = snap.val() || {};
-      const events = Object.values(data);
+      const events = Object.values(data).map(obj => {
+        const email = obj.email || '';
+        const uid   = obj.uid || '';
+        const bg    = USER_COLORS[email] || colorFromString(email || uid || obj.id);
+        const title = obj.title; // keep as-is; or `${obj.title} (${labelFromEmail(email)})`
+        return {
+          id: obj.id,
+          title,
+          start: obj.start || obj.date,
+          end: obj.end,
+          allDay: obj.allDay ?? !String(obj.start || '').includes('T'),
+          email,
+          uid,
+          backgroundColor: bg,
+          borderColor: bg
+        };
+      });
+
+      // Build legend from the set of emails seen + predefined map
+      const legendMap = {};
+      // Pre-seed from USER_COLORS (so even if that user's events aren't on screen, they appear in legend)
+      for (const [email,color] of Object.entries(USER_COLORS)) legendMap[email] = color;
+      // Include any others from loaded events
+      for (const ev of events) {
+        const email = ev.email;
+        if (!email) continue;
+        if (!legendMap[email]) legendMap[email] = ev.backgroundColor;
+      }
+      renderLegend(legendMap);
+
       calendar.removeAllEvents();
       calendar.addEventSource(events);
       toast(`Loaded ${events.length} event(s)`);
@@ -377,11 +462,10 @@
         else toast(e.message || 'Google sign-in failed', false);
       }
     };
-    $('logoutBtn').onclick = ()=> signOut(auth); // no reload; UI will toggle
+    $('logoutBtn').onclick = ()=> signOut(auth); // UI toggles without page reload
 
     onAuthStateChanged(auth, async (user)=>{
       if(user){
-        // Hide login form, show user strip, enable UI
         $('loginForm').style.display = 'none';
         $('signedIn').style.display = 'flex';
         $('who').textContent = user.email || '';
@@ -390,13 +474,14 @@
         if(!calendar) buildCalendar();
         await loadEvents();
       }else{
-        // Show login form, hide user strip and calendar controls
         $('loginForm').style.display = 'flex';
         $('signedIn').style.display = 'none';
         $('toolbar').style.display = 'none';
         $('cal-title-row').style.display = 'none';
         if(calendar) calendar.removeAllEvents();
-        if(!calendar) buildCalendar(); // still render calendar shell; no events shown yet
+        if(!calendar) buildCalendar(); // ensure shell exists
+        // clear legend when logged out
+        renderLegend({});
       }
     });
 
