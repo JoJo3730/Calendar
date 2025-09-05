@@ -1,63 +1,58 @@
-name: Deploy (bump at deploy only)
+name: Build & Deploy (no-push)
 
 on:
   push:
-    branches: [ main ]   # change if your default branch is different
+    branches: [ main ]
+  workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  pages: write          # allow deploying to Pages
+  id-token: write       # needed by deploy-pages action
+  contents: read        # we only read the repo; no write/push
 
 concurrency:
   group: "pages"
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build deployable site (inject version + time)
+      - name: Compute version strings
+        id: vers
         run: |
-          set -e
+          APP_VERSION="v$(date -u +'%Y.%m.%d').${GITHUB_RUN_NUMBER}"
+          BUILD_TIME="$(date -u +'%Y-%m-%d %H:%M')"
+          echo "app_version=$APP_VERSION" >> $GITHUB_OUTPUT
+          echo "build_time=$BUILD_TIME"   >> $GITHUB_OUTPUT
 
-          # ---- Pick how you want the version to bump ----
-          # Simple: v1.<run_number>
-          APP_VERSION="v1.${GITHUB_RUN_NUMBER}"
-
-          # Or include short SHA:
-          # APP_VERSION="v1.${GITHUB_RUN_NUMBER}-${GITHUB_SHA::7}"
-
-          # UTC build time
-          BUILD_TIME="$(date -u '+%Y-%m-%d %H:%M UTC')"
-
-          echo "APP_VERSION=${APP_VERSION}"
-          echo "BUILD_TIME=${BUILD_TIME}"
-
-          # Make a clean output dir and copy everything
+      - name: Prepare dist with token replacement
+        run: |
           mkdir -p dist
-          rsync -a --delete --exclude '.git' --exclude 'dist' ./ dist/
+          # Copy everything except the Git/Actions dirs into dist
+          rsync -a --exclude=".git" --exclude=".github" ./ dist/
 
-          # Replace placeholders ONLY in the deploy artifact (no commit)
-          # Your index.html should contain %APP_VERSION% and %BUILD_TIME%
-          sed -i \
-            -e "s/%APP_VERSION%/${APP_VERSION}/g" \
-            -e "s/%BUILD_TIME%/${BUILD_TIME}/g" \
-            dist/index.html
-
-          # (Optional) If you also show the version/time elsewhere, repeat sed on those files.
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
+          # Replace placeholders in HTML (add more globs if needed)
+          find dist -type f \( -name "*.html" -o -name "*.js" -o -name "*.json" \) -print0 \
+            | xargs -0 sed -i \
+              -e "s/%APP_VERSION%/${{ steps.vers.outputs.app_version }}/g" \
+              -e "s/%BUILD_TIME%/${{ steps.vers.outputs.build_time }}/g"
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
 
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy to GitHub Pages
+        id: deployment
         uses: actions/deploy-pages@v4
