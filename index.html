@@ -8,171 +8,125 @@
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
 
-  <!-- PWA (optional) -->
-  <link rel="manifest" href="manifest.json">
+  <!-- PWA bits (optional) -->
   <meta name="theme-color" content="#ffffff"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
-  <link rel="icon" type="image/png" href="family-icon-192x192.png"/>
-
-  <!-- Version placeholders (for your GitHub Action stamping, optional) -->
-  <meta name="app-version" content="%APP_VERSION%">
-  <meta name="build-time"  content="%BUILD_TIME%">
 
   <style>
-    :root { --ok:#0a7a0a; --err:#b00020; --br:#e0e0e0; --btn:#f4f6f9; }
-    * { box-sizing: border-box; }
-    body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; margin:0; padding:16px 16px 40px; }
-    h1 { margin:0 0 10px; font-size:26px; font-weight:800; }
+    :root { --ok:#0a7a0a; --err:#b00020; }
+    body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; padding: 16px; }
+    h1 { margin: 0 0 12px; display:flex; align-items:center; gap:.5rem; }
+    #auth-row { display:flex; gap:10px; flex-wrap:wrap; margin:10px 0 18px; }
+    .btn { padding:10px 14px; border-radius:12px; border:1px solid #d0d0d0; background:#fff; font-size:16px; }
+    .btn.primary { background:#1a73e8; color:#fff; border-color:#1a73e8; }
+    .btn.danger { background:#ffe8ea; color:#b00020; border-color:#ffccd1; }
+    .hidden { display:none !important; }
+    #status { margin:8px 0; font-size:14px; }
+    #status.ok { color:var(--ok); }
+    #status.err { color:var(--err); }
 
-    /* Top auth strip */
-    #authTop { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; flex-wrap:wrap; }
-    #signedIn { display:none; align-items:center; gap:10px; }
-    #signedIn .email { font-weight:600; }
-    #logoutBtn { padding:6px 10px; border-radius:10px; border:1px solid var(--br); background:#fff; cursor:pointer; }
+    /* top controls */
+    #topbar { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+    #left-controls, #right-controls { display:flex; gap:10px; align-items:center; }
+    #view-buttons { display:flex; gap:10px; }
+    #signed-as { font-size:14px; opacity:.8; }
 
-    /* Login form (only when signed out) */
-    #loginForm { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:8px 0; }
-    #loginForm input { padding:10px; font-size:16px; border:1px solid var(--br); border-radius:10px; }
-    #loginForm button { padding:10px 14px; border-radius:12px; border:1px solid var(--br); background:#fff; font-size:16px; cursor:pointer; }
-
-    /* Toolbar + Title row */
-    #toolbar { display:none; gap:10px; margin:10px 0; }
-    #toolbar button { padding:10px 14px; border-radius:12px; border:1px solid var(--br); background:var(--btn); font-size:16px; flex:1 1 140px; }
-    #cal-title-row { display:none; align-items:center; gap:12px; margin:10px 0 8px; }
-    #cal-title-row button { padding:.5rem .75rem; border-radius:10px; border:1px solid var(--br); background:#fff; }
-    #cal-title { font-weight:900; font-size:2rem; line-height:1; }
-
-    /* Status toast */
-    #status { margin:6px 0 10px; font-size:14px; display:none; }
-    #status.ok { color:var(--ok); } #status.err { color:var(--err); }
-
-    /* Event form card */
-    #form { display:none; max-width:980px; background:#f7f7f7; border-radius:12px; padding:12px; margin:10px 0; }
-    #form h3 { margin:0 0 8px; }
-    label { display:block; margin:10px 2px 6px; font-weight:600; }
-    input[type="text"], input[type="date"], input[type="time"] { width:100%; padding:10px; font-size:16px; border:1px solid var(--br); border-radius:10px; background:#fff; }
+    /* simple form */
+    #event-form { background:#f6f7f8; border:1px solid #e4e7eb; border-radius:12px; padding:12px; margin:12px 0; }
+    #event-form.hidden { display:none; }
+    label { display:block; font-weight:600; margin:8px 0 4px; }
+    input[type="text"], input[type="date"], input[type="time"] { width:100%; padding:10px; box-sizing:border-box; font-size:16px; }
     .row { display:flex; gap:10px; flex-wrap:wrap; }
-    .row > div { flex:1 1 260px; min-width:240px; }
-    .actions { display:flex; gap:10px; margin-top:10px; }
-    .actions button { flex:1; padding:12px; border-radius:12px; border:1px solid var(--br); background:#fff; font-size:16px; cursor:pointer; }
+    .row > * { flex:1; min-width:180px; }
 
-    /* Calendar */
-    #calendar { max-width:980px; }
-    .fc { --fc-border-color:#e6ebf2; }
-    .fc-daygrid-day-number { font-weight:600; }
-
-    /* Color legend */
-    #legend { display:none; gap:10px; flex-wrap:wrap; align-items:center; margin:8px 0 4px; }
-    .legend-item { display:flex; align-items:center; gap:8px; padding:6px 10px; border:1px solid var(--br); border-radius:20px; background:#fff; }
-    .legend-dot { width:14px; height:14px; border-radius:50%; border:1px solid #999; }
-
-    footer { margin-top:20px; text-align:center; font-size:12px; color:#888; }
+    #calendar { margin-top:10px; }
+    footer { margin:18px 0 8px; text-align:center; opacity:.65; font-size:12px; }
   </style>
 </head>
 <body>
   <h1>👪 Family Calendar</h1>
 
-  <!-- Top auth strip -->
-  <div id="authTop">
-    <!-- Shown only when signed OUT -->
-    <div id="loginForm">
+  <!-- Auth section -->
+  <div id="auth-block">
+    <div class="row">
       <input id="email" type="email" placeholder="Email" autocomplete="username">
-      <input id="pass" type="password" placeholder="Password" autocomplete="current-password">
-      <button id="signup">Sign Up</button>
-      <button id="login">Log In</button>
-      <button id="google">Sign in with Google</button>
+      <input id="password" type="password" placeholder="Password" autocomplete="current-password">
     </div>
-
-    <!-- Shown only when signed IN -->
-    <div id="signedIn">
-      <span>Signed in as <span class="email" id="who"></span></span>
-      <button id="logoutBtn">Log Out</button>
+    <div id="auth-row">
+      <button id="btn-signup" class="btn">Sign Up</button>
+      <button id="btn-login"  class="btn primary">Log In</button>
+      <button id="btn-google" class="btn">Sign in with Google</button>
     </div>
   </div>
 
-  <!-- View toolbar (only when signed in) -->
-  <div id="toolbar">
-    <button id="btnRefresh">Refresh</button>
-    <button id="btnMonth">Month</button>
-    <button id="btnWeek">Week</button>
-    <button id="btnDay">Day</button>
+  <!-- Top bar (shown when logged in) -->
+  <div id="topbar" class="hidden">
+    <div id="left-controls">
+      <div id="view-buttons">
+        <button id="btn-refresh" class="btn">Refresh</button>
+        <button id="btn-month"   class="btn">Month</button>
+        <button id="btn-week"    class="btn">Week</button>
+        <button id="btn-day"     class="btn">Day</button>
+      </div>
+    </div>
+
+    <div id="right-controls">
+      <span id="signed-as"></span>
+      <button id="btn-logout" class="btn danger">Log Out</button>
+    </div>
   </div>
 
-  <!-- Custom title + arrows (only when signed in) -->
-  <div id="cal-title-row">
-    <button id="btn-prev" aria-label="Previous">‹</button>
-    <button id="btn-today" aria-label="Today">today</button>
-    <button id="btn-next" aria-label="Next">›</button>
-    <div id="cal-title"></div>
-  </div>
+  <div id="status" class="hidden"></div>
 
-  <!-- Per-user color legend -->
-  <div id="legend"></div>
-
-  <!-- Status -->
-  <div id="status"></div>
-
-  <!-- Add / Edit form -->
-  <div id="form">
-    <h3>Add / Edit Event</h3>
-    <input type="hidden" id="evId">
-
-    <label>Title</label>
-    <input id="evTitle" type="text" placeholder="e.g., Vacation">
-
+  <!-- Add/Edit form -->
+  <div id="event-form" class="hidden">
+    <input type="hidden" id="event-id">
+    <div class="row">
+      <div>
+        <label>Title</label>
+        <input id="title" type="text" placeholder="e.g., Vacation">
+      </div>
+    </div>
     <div class="row">
       <div>
         <label>Start Date</label>
-        <input id="evStartDate" type="date">
+        <input id="start-date" type="date">
       </div>
       <div>
         <label>End Date (optional, inclusive)</label>
-        <input id="evEndDate" type="date">
+        <input id="end-date" type="date">
       </div>
     </div>
-
     <div class="row">
       <div>
         <label>Start Time (optional)</label>
-        <input id="evStartTime" type="time" step="60">
+        <input id="start-time" type="time">
       </div>
       <div>
         <label>End Time (optional)</label>
-        <input id="evEndTime" type="time" step="60">
+        <input id="end-time" type="time">
       </div>
     </div>
-
-    <div class="actions">
-      <button id="save">Save</button>
-      <button id="del">Delete</button>
-      <button id="cancel">Cancel</button>
+    <div class="row">
+      <button id="btn-save" class="btn primary">Save</button>
+      <button id="btn-cancel" class="btn">Cancel</button>
     </div>
   </div>
 
-  <!-- Calendar -->
   <div id="calendar"></div>
 
-  <!-- Version footer -->
-  <footer>
-    Version: <span id="app-version"></span> | Built: <span id="build-time"></span>
-  </footer>
+  <footer>Version: v1.x • Built from main</footer>
 
-  <!-- Firebase (modular) + App -->
+  <!-- Firebase -->
   <script type="module">
-    /* ========= Version display ========= */
-    const APP_VERSION = document.querySelector('meta[name="app-version"]')?.content || 'v0.0.0';
-    const BUILD_TIME  = document.querySelector('meta[name="build-time"]')?.content || '';
-    document.getElementById('app-version').textContent = APP_VERSION;
-    document.getElementById('build-time').textContent  = BUILD_TIME;
-
-    /* ========= Firebase ========= */
-    import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import {
       getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult,
       createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    import {getDatabase, ref, get, set, remove} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import { getDatabase, ref, set, get, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
+    // --- Your Firebase config ---
     const firebaseConfig = {
       apiKey: "AIzaSyB6dFxZiIuwfobxGRxcfaNsoUeDiDV_1dQ",
       authDomain: "familycalendar-1587d.firebaseapp.com",
@@ -183,313 +137,229 @@
       appId: "1:667608245714:web:fdcc88f2317992d4f1140b"
     };
 
-    const app = initializeApp(firebaseConfig);
+    const app  = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db   = getDatabase(app);
     const googleProvider = new GoogleAuthProvider();
-    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
-    /* ========= DOM helpers ========= */
+    // -------- Fixed colors by user (email) --------
+    const USER_COLORS = {
+      "josephandlori@hotmail.com":  "#1E90FF", // DodgerBlue
+      "carolinefrederick123@gmail.com": "#FF4500", // OrangeRed
+      "madimack95@gmail.com": "#32CD32", // LimeGreen
+      "jasethompson860@gmail.com": "#8A2BE2", // BlueViolet
+      "jmtandlyt@gmail.com": "#FF1493" // DeepPink
+    };
+    const DEFAULT_COLOR = "#808080"; // fallback gray
+    const colorForUser = (email) => USER_COLORS[email?.toLowerCase?.()] || DEFAULT_COLOR;
+
+    // --------- helpers ----------
     const $ = (id)=>document.getElementById(id);
     const statusEl = $('status');
-    function toast(msg, ok=true){
+    function toast(msg, ok=false) {
       statusEl.textContent = msg;
-      statusEl.classList.remove('ok','err');
-      statusEl.classList.add(ok ? 'ok' : 'err');
-      statusEl.style.display = 'block';
-      setTimeout(()=>{ statusEl.style.display='none'; }, ok ? 2200 : 4800);
+      statusEl.className = ok ? 'ok' : 'err';
+      statusEl.classList.remove('hidden');
+      setTimeout(()=>statusEl.classList.add('hidden'), ok ? 2200 : 6000);
+    }
+    function toISODate(d){ // yyyy-mm-dd
+      const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), da=String(d.getDate()).padStart(2,'0');
+      return `${y}-${m}-${da}`;
+    }
+    function addDaysISO(ymd, days){
+      const d=new Date(ymd+"T00:00:00"); d.setDate(d.getDate()+days); return toISODate(d);
     }
 
-    /* ========= User color mapping =========
-       Edit this to assign family colors by email address.
-       Any user not listed here will get a deterministic fallback color.
-    */
-    const USER_COLORS = Object.freeze({
-      // "jojo@example.com": "#e57373",
-      // "lovi@example.com": "#64b5f6",
-      // "maimai@example.com": "#81c784",
-      // "carol@example.com": "#ba68c8",
-      // "jase@example.com": "#ffb74d",
-      // "lb@example.com":   "#4db6ac",
-    });
-
-    // Deterministic fallback: hash string -> HSL color
-    function colorFromString(str){
-      let h=0; for (let i=0;i<str.length;i++) h = (h*31 + str.charCodeAt(i)) >>> 0;
-      const hue = h % 360;
-      return `hsl(${hue} 70% 70%)`;
-    }
-
-    function labelFromEmail(email){
-      if(!email) return 'unknown';
-      const name = email.split('@')[0] || email;
-      return name.replace(/[._]/g,' ').toLowerCase();
-    }
-
-    // Build/update legend chips from a set of {email: color}
-    function renderLegend(colorMap){
-      const legend = $('legend');
-      legend.innerHTML = '';
-      const entries = Object.entries(colorMap);
-      if (!entries.length) { legend.style.display='none'; return; }
-      for(const [email,color] of entries){
-        const item = document.createElement('div');
-        item.className = 'legend-item';
-        item.innerHTML = `<span class="legend-dot" style="background:${color}"></span><span>${labelFromEmail(email)}</span>`;
-        legend.appendChild(item);
-      }
-      legend.style.display = 'flex';
-    }
-
-    /* ========= Calendar ========= */
+    // ---------- FullCalendar setup ----------
     let calendar;
-
-    function addDays(ymdStr, n){ const d=new Date(ymdStr+"T00:00:00"); d.setDate(d.getDate()+n); const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; }
-
-    function composeEventForSave(id, title, sDate, eDateInc, sTime, eTime){
-      const hasTimes = sTime && eTime;
-      const allDay = !hasTimes;
-      const start = hasTimes ? `${sDate}T${sTime}` : sDate;
-      let end = null;
-      if (eDateInc) end = hasTimes ? `${eDateInc}T${eTime || sTime}` : addDays(eDateInc, 1); // exclusive end for all-day
-      const u = auth.currentUser;
-      const base = { id, title, start, allDay, uid: u?.uid || null, email: u?.email || null };
-      if (end) base.end = end;
-      return base;
-    }
-
-    function weekHeaderContent(arg){
-      const type = calendar?.view?.type;
-      if (type === 'timeGridWeek' || type === 'timeGridDay') {
-        const d = arg.date;
-        const wd = d.toLocaleString(undefined, { weekday: 'short' }); // Sun
-        const m  = d.toLocaleString(undefined, { month: 'short' });   // Aug
-        const day= d.getDate();
-        return `${wd} ${m} ${day}`;
-      }
-      return arg.text;
-    }
-
-    function formatRange(start, end){
-      const endInc = new Date(end.getTime() - 86400000);
-      const sm = start.toLocaleString(undefined,{month:'short'});
-      const sy = start.toLocaleString(undefined,{year:'numeric'});
-      const sd = start.toLocaleString(undefined,{day:'numeric'});
-      const em = endInc.toLocaleString(undefined,{month:'short'});
-      const ey = endInc.toLocaleString(undefined,{year:'numeric'});
-      const ed = endInc.toLocaleString(undefined,{day:'numeric'});
-      if (sm===em && sy===ey) return `${sm} ${sd}–${ed}, ${sy}`;
-      if (sy===ey) return `${sm} ${sd} – ${em} ${ed}, ${sy}`;
-      return `${sm} ${sd}, ${sy} – ${em} ${ed}, ${ey}`;
-    }
-
-    function updateTitle(){
-      if (!calendar) return;
-      const v = calendar.view;
-      if (v.type === 'dayGridMonth') {
-        $('cal-title').textContent = v.currentStart.toLocaleString(undefined, { month: 'long', year:'numeric' });
-      } else if (v.type === 'timeGridWeek') {
-        $('cal-title').textContent = formatRange(v.currentStart, v.currentEnd);
-      } else if (v.type === 'timeGridDay') {
-        $('cal-title').textContent = v.currentStart.toLocaleString(undefined, { weekday:'short', month:'short', day:'numeric', year:'numeric' });
-      } else {
-        $('cal-title').textContent = v.title;
-      }
-    }
-
-    function buildCalendar(){
+    document.addEventListener('DOMContentLoaded', async () => {
+      // handle possible redirect login
+      try { await getRedirectResult(auth); } catch(_) {}
       calendar = new FullCalendar.Calendar($('calendar'), {
         initialView: 'dayGridMonth',
         headerToolbar: false,
-        fixedWeekCount: true,
-        height: 'auto',
-        dayHeaderContent: weekHeaderContent,
-        dateClick(info){
-          if(!auth.currentUser){ toast('Please log in to add.', false); return; }
-          $('evId').value = '';
-          $('evTitle').value = '';
-          $('evStartDate').value = info.dateStr;
-          $('evEndDate').value   = info.dateStr;
-          $('evStartTime').value = '';
-          $('evEndTime').value   = '';
-          $('form').style.display = 'block';
-          if (calendar.view.type === 'timeGridWeek') {
-            calendar.changeView('timeGridDay', info.dateStr);
-          }
+        fixedWeekCount: true,      // always show 6 weeks in month grid
+        showNonCurrentDates: true, // keep out-of-month dates visible
+        dayMaxEventRows: 3,
+        firstDay: 0, // Sun
+        dateClick: (info) => {
+          if (!auth.currentUser) { toast('Please log in to add events'); return; }
+          $('event-form').classList.remove('hidden');
+          $('event-id').value = '';
+          $('title').value = '';
+          $('start-date').value = info.dateStr;
+          $('end-date').value   = info.dateStr;
+          $('start-time').value = '';
+          $('end-time').value   = '';
         },
-        eventClick(info){
-          if(!auth.currentUser){ toast('Please log in to edit.', false); return; }
-          const ev = info.event;
-          $('evId').value = ev.id || '';
-          $('evTitle').value = ev.title || '';
+        eventClick: (info) => {
+          if (!auth.currentUser) return;
+          // Load into form for edit instead of immediate delete
+          const e = info.event;
+          $('event-form').classList.remove('hidden');
+          $('event-id').value = e.id;
+          $('title').value = e.title;
+          const start = e.allDay ? toISODate(e.start) : e.start.toISOString().slice(0,10);
+          $('start-date').value = start;
 
-          const startISO = ev.startStr || '';
-          const endISO   = ev.endStr || '';
-          const allDay   = ev.allDay;
+          // inclusive end in our DB; FC may have exclusive end for all-day
+          let endISO = e.extendedProps.endInclusive || (e.end ? e.end.toISOString().slice(0,10) : start);
+          $('end-date').value = endISO;
 
-          const [sDate, sTime=''] = startISO.split('T');
-          $('evStartDate').value = sDate || '';
-          if (allDay) {
-            $('evStartTime').value = '';
-            $('evEndTime').value   = '';
-            $('evEndDate').value   = endISO ? addDays(endISO.slice(0,10), -1) : sDate;
-          } else {
-            $('evStartTime').value = sTime.slice(0,5);
-            if (endISO) {
-              const [eDate, eTime=''] = endISO.split('T');
-              $('evEndDate').value = eDate || sDate;
-              $('evEndTime').value = eTime.slice(0,5);
-            } else {
-              $('evEndDate').value = sDate;
-              $('evEndTime').value = '';
-            }
-          }
-
-          $('form').style.display = 'block';
-          info.jsEvent.preventDefault();
+          $('start-time').value = e.extendedProps.startTime || '';
+          $('end-time').value   = e.extendedProps.endTime   || '';
         },
-        eventDidMount(info){
-          // ensure colors applied (in case not set earlier)
-          const email = info.event.extendedProps.email;
-          const uid   = info.event.extendedProps.uid;
-          const color = USER_COLORS[email] || colorFromString(email || uid || info.event.id);
-          info.el.style.backgroundColor = color;
-          info.el.style.borderColor = color;
-        },
-        datesSet(){ updateTitle(); }
+        // ensure hour labels compact in week/day
+        views: {
+          timeGridWeek: { dayHeaderFormat: { weekday:'short', day:'numeric' } },
+          timeGridDay:  { dayHeaderFormat: { weekday:'long',  month:'short', day:'numeric' } }
+        }
       });
       calendar.render();
-      updateTitle();
+    });
 
-      // Title navigation
-      $('btn-prev').onclick  = ()=> calendar.prev();
-      $('btn-next').onclick  = ()=> calendar.next();
-      $('btn-today').onclick = ()=> calendar.today();
+    // --------- Auth UI wiring ----------
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
-      // Our toolbar
-      $('btnRefresh').onclick = ()=> loadEvents();
-      $('btnMonth').onclick   = ()=> calendar.changeView('dayGridMonth');
-      $('btnWeek').onclick    = ()=> calendar.changeView('timeGridWeek');
-      $('btnDay').onclick     = ()=> calendar.changeView('timeGridDay');
-    }
-
-    async function loadEvents(){
-      if(!auth.currentUser) return;
-      const snap = await get(ref(db,"events"));
-      const data = snap.val() || {};
-      const events = Object.values(data).map(obj => {
-        const email = obj.email || '';
-        const uid   = obj.uid || '';
-        const bg    = USER_COLORS[email] || colorFromString(email || uid || obj.id);
-        const title = obj.title; // keep as-is; or `${obj.title} (${labelFromEmail(email)})`
-        return {
-          id: obj.id,
-          title,
-          start: obj.start || obj.date,
-          end: obj.end,
-          allDay: obj.allDay ?? !String(obj.start || '').includes('T'),
-          email,
-          uid,
-          backgroundColor: bg,
-          borderColor: bg
-        };
-      });
-
-      // Build legend from the set of emails seen + predefined map
-      const legendMap = {};
-      // Pre-seed from USER_COLORS (so even if that user's events aren't on screen, they appear in legend)
-      for (const [email,color] of Object.entries(USER_COLORS)) legendMap[email] = color;
-      // Include any others from loaded events
-      for (const ev of events) {
-        const email = ev.email;
-        if (!email) continue;
-        if (!legendMap[email]) legendMap[email] = ev.backgroundColor;
-      }
-      renderLegend(legendMap);
-
-      calendar.removeAllEvents();
-      calendar.addEventSource(events);
-      toast(`Loaded ${events.length} event(s)`);
-    }
-
-    // Save/Delete/Cancel
-    $('save').onclick = async ()=>{
-      if(!auth.currentUser){ toast('Please log in.', false); return; }
-      const id    = $('evId').value || String(Date.now());
-      const title = $('evTitle').value.trim();
-      const sDate = $('evStartDate').value;
-      const eDate = $('evEndDate').value;
-      const sTime = $('evStartTime').value.trim();
-      const eTime = $('evEndTime').value.trim();
-      if(!title || !sDate){ toast('Title and start date are required.', false); return; }
-      const rec = composeEventForSave(id, title, sDate, eDate, sTime, eTime);
-      await set(ref(db, "events/"+id), rec);
-      $('form').style.display = 'none';
-      await loadEvents();
-      toast('Saved!');
+    $('btn-signup').onclick = async () => {
+      try {
+        const cred = await createUserWithEmailAndPassword(auth, $('email').value.trim(), $('password').value);
+        toast('Signed up', true);
+      } catch(e){ toast(e.message); }
     };
 
-    $('del').onclick = async ()=>{
-      const id = $('evId').value;
-      if(!id){ $('form').style.display='none'; return; }
-      if(!confirm('Delete this event?')) return;
-      await remove(ref(db, "events/"+id));
-      $('form').style.display = 'none';
-      await loadEvents();
-      toast('Deleted.');
+    $('btn-login').onclick = async () => {
+      try {
+        await signInWithEmailAndPassword(auth, $('email').value.trim(), $('password').value);
+        toast('Logged in', true);
+      } catch(e){ toast(e.message); }
     };
 
-    $('cancel').onclick = ()=> $('form').style.display = 'none';
-
-    /* ========= Auth wiring ========= */
-    $('signup').onclick = async ()=>{
-      try{
-        await createUserWithEmailAndPassword(auth, $('email').value.trim(), $('pass').value);
-      }catch(e){ toast(e.message || 'Sign up failed', false); }
-    };
-    $('login').onclick = async ()=>{
-      try{
-        await signInWithEmailAndPassword(auth, $('email').value.trim(), $('pass').value);
-      }catch(e){ toast(e.message || 'Login failed', false); }
-    };
-    $('google').onclick = async ()=>{
-      try{
-        if(isIOS || isSafari) await signInWithRedirect(auth, googleProvider);
+    $('btn-google').onclick = async () => {
+      try {
+        if (isIOS || isSafari) await signInWithRedirect(auth, googleProvider);
         else await signInWithPopup(auth, googleProvider);
-      }catch(e){
-        if(e?.code==='auth/popup-blocked'){ await signInWithRedirect(auth, googleProvider); }
-        else toast(e.message || 'Google sign-in failed', false);
-      }
+      } catch(e){ toast(e.message); }
     };
-    $('logoutBtn').onclick = ()=> signOut(auth); // UI toggles without page reload
 
-    onAuthStateChanged(auth, async (user)=>{
-      if(user){
-        $('loginForm').style.display = 'none';
-        $('signedIn').style.display = 'flex';
-        $('who').textContent = user.email || '';
-        $('toolbar').style.display = 'flex';
-        $('cal-title-row').style.display = 'flex';
-        if(!calendar) buildCalendar();
-        await loadEvents();
-      }else{
-        $('loginForm').style.display = 'flex';
-        $('signedIn').style.display = 'none';
-        $('toolbar').style.display = 'none';
-        $('cal-title-row').style.display = 'none';
-        if(calendar) calendar.removeAllEvents();
-        if(!calendar) buildCalendar(); // ensure shell exists
-        // clear legend when logged out
-        renderLegend({});
+    $('btn-logout').onclick = async () => {
+      await signOut(auth);
+      toast('Logged out', true);
+    };
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        // show app controls
+        $('auth-block').classList.add('hidden');
+        $('topbar').classList.remove('hidden');
+        $('signed-as').textContent = `Signed in as ${user.email}`;
+        $('event-form').classList.add('hidden');
+        loadEvents();
+      } else {
+        $('auth-block').classList.remove('hidden');
+        $('topbar').classList.add('hidden');
+        $('signed-as').textContent = '';
+        $('event-form').classList.add('hidden');
+        calendar && calendar.removeAllEvents();
       }
     });
 
-    // Handle Google redirect on iOS/Safari quietly
-    getRedirectResult(auth).catch(()=>{});
+    // --------- Buttons on topbar ----------
+    $('btn-month').onclick  = ()=> calendar.changeView('dayGridMonth');
+    $('btn-week').onclick   = ()=> calendar.changeView('timeGridWeek');
+    $('btn-day').onclick    = ()=> calendar.changeView('timeGridDay');
+    $('btn-refresh').onclick= ()=> loadEvents();
 
-    // Boot calendar shell early so layout exists even when logged out
-    buildCalendar();
+    // --------- Save / Cancel ----------
+    $('btn-cancel').onclick = ()=> $('event-form').classList.add('hidden');
+
+    $('btn-save').onclick = async () => {
+      if (!auth.currentUser) { toast('Please log in to save'); return; }
+
+      const id   = $('event-id').value || String(Date.now());
+      const t    = $('title').value.trim();
+      const sd   = $('start-date').value;
+      const ed   = $('end-date').value;
+      const st   = $('start-time').value; // "HH:MM" or ""
+      const et   = $('end-time').value;
+
+      if (!t || !sd) { toast('Title and start date are required'); return; }
+
+      // Build shape for DB
+      let allDay = (!st && !et);
+      let payload = {
+        id, title: t,
+        allDay,
+        userEmail: auth.currentUser.email || "",
+        userUid:   auth.currentUser.uid || ""
+      };
+
+      if (allDay) {
+        payload.start = sd;                       // "YYYY-MM-DD"
+        payload.end   = ed ? addDaysISO(ed,1) : undefined; // store FC all-day exclusive end
+        payload.endInclusive = ed || sd;          // keep inclusive for editing
+      } else {
+        // time-based event: use RFC3339 with local time (no TZ conversion issues for FC)
+        const startISO = `${sd}T${st}:00`;
+        payload.start = startISO;
+        if (et) payload.end = `${ed || sd}T${et}:00`;
+        if (ed) payload.endInclusive = ed;
+        if (st) payload.startTime = st;
+        if (et) payload.endTime   = et;
+      }
+
+      try {
+        await set(ref(db, "events/"+id), payload);
+        $('event-form').classList.add('hidden');
+        toast('Saved!', true);
+        await loadEvents();
+      } catch(e){ toast(e.message); }
+    };
+
+    // --------- Load + colorize events ----------
+    async function loadEvents(){
+      if (!auth.currentUser) return;
+      try {
+        const snap = await get(ref(db, "events"));
+        const data = snap.val() || {};
+        const list = Object.values(data);
+
+        const events = list.map(obj => {
+          // normalize DB -> FC
+          const email = obj.userEmail || '';
+          const color = colorForUser(email);
+          const base = {
+            id: obj.id,
+            title: obj.title,
+            backgroundColor: color,
+            borderColor: color,
+            textColor: '#fff',
+            extendedProps: {
+              startTime: obj.startTime || '',
+              endTime:   obj.endTime   || '',
+              endInclusive: obj.endInclusive || ''
+            }
+          };
+
+          if (obj.allDay || (typeof obj.start === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(obj.start))) {
+            // all-day
+            base.allDay = true;
+            base.start  = obj.start;
+            // if DB kept exclusive end, pass through; otherwise compute if we only stored inclusive
+            if (obj.end) base.end = obj.end;
+            else if (obj.endInclusive) base.end = addDaysISO(obj.endInclusive,1);
+          } else {
+            base.start = obj.start; // datetime string
+            if (obj.end) base.end = obj.end;
+          }
+          return base;
+        });
+
+        calendar.removeAllEvents();
+        calendar.addEventSource(events);
+      } catch(e){ toast(e.message); }
+    }
   </script>
 </body>
 </html>
