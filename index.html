@@ -3,129 +3,175 @@
 <head>
   <meta charset="UTF-8" />
   <title>👪 Family Calendar</title>
-
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#ffffff"/>
-  <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/png" href="family-icon-192x192.png"/>
+  <link rel="manifest" href="manifest.json">
 
   <!-- FullCalendar -->
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
 
   <style>
-    :root { --ok:#0a7a0a; --err:#b00020; }
-    *{ box-sizing:border-box; }
-    body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; margin:0 auto; padding:16px; max-width:980px; }
-    h1{ display:flex; align-items:center; gap:10px; margin:6px 0 8px; }
-    #whoRow{ margin:4px 0 10px; color:#333; }
+    :root {
+      --ok:#0a7a0a; --err:#b00020; --muted:#6b7280;
+      --btn-bg:#fff; --btn-border:#d1d5db; --btn-text:#111827;
+      --chip-bg:#f3f4f6; --accent:#2563eb;
+    }
+    *{box-sizing:border-box}
+    body{
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+      margin:0; padding:16px; color:#111827;
+    }
+    header{display:flex; align-items:center; gap:10px; margin-bottom:8px}
+    header h1{font-size:28px; margin:0; line-height:1.1}
+    #signedInAs{color:#374151; margin:4px 0 10px}
 
-    .pill{ padding:12px 18px; border-radius:14px; border:1px solid #d0d0d0; background:#fff; font-size:16px; }
-    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    .spacer{ flex:1; }
+    /* Top controls */
+    .controls{
+      display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:10px;
+    }
+    .controls .row{display:flex; gap:10px; width:100%}
+    .controls .row.compact{justify-content:flex-start}
+    .controls .row.center{justify-content:center}
 
-    #status{ margin:8px 0 10px; font-size:14px; display:none; }
-    #status.ok{ color:var(--ok); display:block; }
-    #status.err{ color:var(--err); display:block; }
+    button{
+      appearance:none; border:1px solid var(--btn-border); background:var(--btn-bg);
+      color:var(--btn-text); padding:10px 16px; border-radius:14px; font-size:18px;
+    }
+    button.primary{background:#e5f0ff;border-color:#cfe0ff;color:#0b3ea8}
+    button.danger{background:#ffe8e8;border-color:#ffd0d0;color:#a30d0d}
+    button.small{padding:6px 10px; font-size:14px}
+    .ghost{background:#fff;border:1px solid #e5e7eb;color:#111827}
 
-    /* Auth */
-    #auth-section.hidden{ display:none; }
-    #auth-section input{ width:100%; padding:12px; font-size:16px; margin:6px 0; border:1px solid #d0d0d0; border-radius:10px; }
+    /* Title single line */
+    .titleWrap{display:flex; justify-content:center; margin:6px 0 10px}
+    .titleWrap h2{
+      font-size:44px; line-height:1; margin:0; text-align:center; white-space:nowrap;
+    }
+    @media (max-width: 420px){
+      .titleWrap h2{font-size:36px}
+      button{font-size:16px}
+    }
 
-    /* Calendar UI */
-    #whenTitle{ font-size:42px; line-height:1.05; font-weight:900; margin:10px 0 12px; }
-    #calendar{ --fc-event-text-color:#fff; }
-    .fc .fc-daygrid-day-number{ font-weight:700; }
-    .fc .fc-event{ border:0; border-radius:10px; padding:2px 6px; }
-    .fc .fc-timegrid-slot{ height:38px; }
+    /* Auth section */
+    #auth-section input{width:100%; padding:10px; font-size:16px; margin:6px 0; border:1px solid #d1d5db; border-radius:10px}
+    #auth-section .row{display:flex; gap:10px; flex-wrap:wrap}
+    #auth-section .row > button{flex:1; min-width:140px}
+    .hidden{display:none}
 
-    /* Form */
-    #formCard{ background:#f7f8fb; border:1px solid #e6e8ef; border-radius:14px; padding:14px; margin:12px 0; }
-    #formCard.hidden{ display:none; }
-    label{ display:block; margin:10px 0 6px; font-weight:600; }
-    input[type="text"],input[type="date"],input[type="time"]{ width:100%; padding:12px 10px; border:1px solid #d2d6e0; border-radius:10px; font-size:16px; background:#fff; }
-    .actions{ display:flex; gap:10px; margin-top:12px; }
-    .actions button{ flex:1; padding:14px; font-size:16px; border-radius:12px; border:1px solid #cfd8dc; background:#fff; }
-    #btn-save{ background:#1976d2; color:#fff; border-color:#1976d2; }
-    #btn-delete{ background:#ffe8ea; color:#b00020; border-color:#ffcdd2; display:none; }
+    /* Event form */
+    #event-form{background:#f8fafc; border:1px solid #e5e7eb; padding:12px; border-radius:12px; margin:12px 0}
+    #event-form label{display:block; margin-top:8px; color:#374151; font-weight:600}
+    #event-form input[type="text"], #event-form input[type="date"], #event-form input[type="time"]{
+      width:100%; padding:10px; font-size:16px; border:1px solid #d1d5db; border-radius:10px
+    }
+    #event-actions{display:flex; gap:10px; margin-top:10px; flex-wrap:wrap}
+    #status{margin:6px 0; font-size:14px}
+    #status.ok{color:var(--ok)} #status.err{color:var(--err)}
 
-    /* Footer */
-    #version{ margin:18px 0 6px; text-align:center; color:#777; }
+    /* Calendar size */
+    #calendar{max-width: 980px; margin: 0 auto}
+
+    /* Event colors (border follows background) */
+    .fc-event, .fc-daygrid-event{border-width:1px}
+    .fc .fc-toolbar-title{display:none} /* hide FC’s own title; we render our own single-line above */
+
+    /* Day/time pills */
+    .chip{display:inline-block; background:var(--chip-bg); padding:2px 8px; border-radius:999px; font-size:12px; color:#374151; margin-left:6px}
+
+    footer{margin:16px auto 8px; text-align:center; color:var(--muted)}
   </style>
 </head>
 <body>
-  <h1>👪 Family Calendar</h1>
 
-  <!-- Signed-in status / logout -->
-  <div id="whoRow" class="row">
-    <div>Signed in as <strong id="who">(not signed in)</strong></div>
-    <div class="spacer"></div>
-    <button id="btn-logout" class="pill" style="display:none;">Log Out</button>
-  </div>
+  <header>
+    <img src="family-icon-192x192.png" alt="" width="28" height="28" style="border-radius:6px"/>
+    <h1>Family Calendar</h1>
+  </header>
 
-  <!-- Top controls -->
-  <div class="row">
-    <button id="btn-refresh" class="pill">Refresh</button>
-    <button id="btn-month" class="pill">Month</button>
-    <button id="btn-week"  class="pill">Week</button>
-    <button id="btn-day"   class="pill">Day</button>
-    <div class="spacer"></div>
-    <button id="btn-prev" class="pill" aria-label="previous">‹</button>
-    <button id="btn-today" class="pill">today</button>
-    <button id="btn-next" class="pill" aria-label="next">›</button>
-  </div>
+  <div id="signedInAs" class="hidden">Signed in as <span id="who"></span></div>
 
-  <div id="whenTitle"></div>
+  <!-- Top controls: row 1 (Log Out + Refresh), row 2 (Month Week Day), row 3 (nav) -->
+  <div class="controls">
+    <div class="row compact" id="row-logout-refresh" style="justify-content:space-between; max-width:980px; margin:0 auto">
+      <div style="display:flex; gap:10px">
+        <button id="btn-logout" class="danger hidden">Log Out</button>
+        <button id="btn-refresh" class="primary">Refresh</button>
+      </div>
+      <div class="hidden" id="auth-mini-hint"></div>
+    </div>
 
-  <!-- Auth (hidden when logged in) -->
-  <div id="auth-section" class="hidden">
-    <input type="email" id="auth-email" placeholder="Email" autocomplete="username">
-    <input type="password" id="auth-password" placeholder="Password" autocomplete="current-password">
-    <div class="row">
-      <button id="btn-signup" class="pill">Sign Up</button>
-      <button id="btn-login"  class="pill">Log In</button>
+    <div class="row center" style="max-width:980px; margin:0 auto">
+      <button id="btn-month" class="ghost">Month</button>
+      <button id="btn-week"  class="ghost">Week</button>
+      <button id="btn-day"   class="ghost">Day</button>
+    </div>
+
+    <div class="row center" style="max-width:980px; margin:0 auto">
+      <button id="btn-prev" class="ghost small">‹</button>
+      <button id="btn-today" class="primary small">today</button>
+      <button id="btn-next" class="ghost small">›</button>
     </div>
   </div>
 
-  <div id="status"></div>
+  <!-- Single line Month Year -->
+  <div class="titleWrap"><h2 id="monthTitle"> </h2></div>
+
+  <!-- Auth block (hidden when logged-in) -->
+  <div id="auth-section" class="hidden" style="max-width:980px; margin:0 auto 6px">
+    <input type="email" id="auth-email" placeholder="Email" autocomplete="username">
+    <input type="password" id="auth-password" placeholder="Password" autocomplete="current-password">
+    <div class="row">
+      <button id="btn-signup">Sign Up</button>
+      <button id="btn-login">Log In</button>
+      <button id="btn-google">Sign in with Google</button>
+    </div>
+  </div>
+
+  <div id="status" class="hidden"></div>
 
   <!-- Add/Edit form -->
-  <div id="formCard" class="hidden">
+  <div id="event-form" class="hidden" style="max-width:980px; margin:0 auto">
     <input type="hidden" id="event-id">
     <label>Title</label>
     <input type="text" id="event-title" placeholder="e.g., Vacation">
-
     <label>Start Date</label>
     <input type="date" id="event-date-start">
-
     <label>End Date (optional, inclusive)</label>
     <input type="date" id="event-date-end">
-
-    <label>Start Time (optional)</label>
-    <input type="time" id="event-time-start">
-
-    <label>End Time (optional)</label>
-    <input type="time" id="event-time-end">
-
-    <div class="actions">
-      <button id="btn-save">Save</button>
+    <div style="display:flex; gap:10px; margin-top:8px; flex-wrap:wrap">
+      <div style="flex:1; min-width:160px">
+        <label>Start Time (optional)</label>
+        <input type="time" id="event-time-start" step="60">
+      </div>
+      <div style="flex:1; min-width:160px">
+        <label>End Time (optional)</label>
+        <input type="time" id="event-time-end" step="60">
+      </div>
+    </div>
+    <div id="event-actions">
+      <button id="btn-save" class="primary">Save</button>
       <button id="btn-cancel">Cancel</button>
-      <button id="btn-delete">Delete</button>
+      <button id="btn-delete" class="danger hidden">Delete</button>
     </div>
   </div>
 
   <div id="calendar"></div>
 
-  <div id="version">Version: %APP_VERSION% | Built: %BUILD_TIME%</div>
+  <footer>
+    Version: %APP_VERSION% · Built: %BUILD_TIME%
+  </footer>
 
+  <!-- Firebase SDKs -->
   <script type="module">
-    /* ---------------- Firebase ---------------- */
+    /* ------------------ Firebase init ------------------ */
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import {
-      getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
-      signOut, onAuthStateChanged
+      getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult,
+      createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    import { getDatabase, ref, get, set, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import { getDatabase, ref, set, get, remove, update } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyB6dFxZiIuwfobxGRxcfaNsoUeDiDV_1dQ",
@@ -140,311 +186,275 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db   = getDatabase(app);
+    const googleProvider = new GoogleAuthProvider();
 
-    /* ---------------- Helpers & UI ---------------- */
-    const $ = id => document.getElementById(id);
-    const statusEl = $('status');
-    function showStatus(msg, ok=false) {
+    /* ------------------ Helpers & UI refs ------------------ */
+    const el = id => document.getElementById(id);
+    const signedInAs = el('signedInAs');
+    const who = el('who');
+    const statusEl = el('status');
+
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+    function showStatus(msg, ok=false){
       statusEl.textContent = msg;
-      statusEl.classList.remove('ok','err');
-      statusEl.classList.add(ok ? 'ok' : 'err');
-      statusEl.style.display = 'block';
-      setTimeout(()=> statusEl.style.display='none', ok?2200:5000);
+      statusEl.classList.remove('hidden','ok','err');
+      statusEl.classList.add(ok? 'ok' : 'err');
+      setTimeout(()=>statusEl.classList.add('hidden'), ok? 2200 : 5000);
     }
 
-    function addDaysYMD(ymd, n){
-      if(!ymd) return ymd;
-      const d = new Date(ymd + "T00:00:00");
-      d.setDate(d.getDate()+n);
-      const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), da = String(d.getDate()).padStart(2,'0');
-      return `${y}-${m}-${da}`;
-    }
-    function toLocalISO(ymd, hm){ // returns local ISO string
-      if(!ymd || !hm) return null;
-      const [h,m] = hm.split(':').map(n=>parseInt(n,10));
-      const d = new Date(ymd + "T00:00:00");
-      d.setHours(h, m, 0, 0);
-      return d.toISOString();
-    }
-
-    // Fixed colors per user email
-    const USER_COLORS = {
-      "josephandlori@hotmail.com": "#22c55e",  // green
-      "carolinefrederick123@gmail.com": "#ef4444", // red
-      "madimack95@gmail.com": "#a855f7", // violet
-      "jasethompson860@gmail.com": "#3b82f6", // blue
-      "jmtandlyt@gmail.com": "#06b6d4", // cyan
-      "__default": "#7e57c2" // purple fallback
+    /* ------------------ User color map ------------------ */
+    const userColorMap = {
+      "josephandlori@hotmail.com": {bg:"#84cc16", text:"#0f172a"},
+      "carolinefrederick123@gmail.com": {bg:"#06b6d4", text:"#031525"},
+      "madimack95@gmail.com": {bg:"#f59e0b", text:"#0f172a"},
+      "jasethompson860@gmail.com": {bg:"#ef4444", text:"#fff"},
+      "jmtandlyt@gmail.com": {bg:"#a855f7", text:"#fff"}
     };
-    const colorFor = (email)=> USER_COLORS[email?.toLowerCase?.()] || USER_COLORS.__default;
+    const defaultColor = {bg:"#22c55e", text:"#0f172a"};
 
-    /* ---------------- Calendar ---------------- */
-    let currentUser = null;
+    function colorForEmail(email){
+      return userColorMap[email?.toLowerCase?.()] || defaultColor;
+    }
+
+    /* ------------------ Calendar setup ------------------ */
     let calendar;
-    const LONG_PRESS_MS = 650;
+    let longPressTimer = null;
 
-    function updateWhenTitle(){
-      const view = calendar?.view;
-      if(!view){ $('whenTitle').textContent = ''; return; }
-      if(view.type === 'dayGridMonth'){
-        $('whenTitle').textContent = view.currentStart.toLocaleString(undefined,{month:'long', year:'numeric'});
-      } else if (view.type.startsWith('timeGridWeek')) {
-        const s=view.currentStart, e=new Date(view.currentEnd.getTime()-86400000);
-        const fmt = new Intl.DateTimeFormat(undefined,{month:'short', day:'numeric'});
-        $('whenTitle').textContent = `${fmt.format(s)} – ${fmt.format(e)}, ${e.getFullYear()}`;
-      } else {
-        $('whenTitle').textContent = calendar.getDate().toLocaleString(undefined,{weekday:'long', month:'long', day:'numeric', year:'numeric'});
-      }
+    function setTitle(){
+      const d = calendar.getDate();
+      const opts = {month:'long', year:'numeric'};
+      el('monthTitle').textContent = new Intl.DateTimeFormat(undefined, opts).format(d);
     }
 
-    function fcNormalize(ev){
-      // Convert DB -> FullCalendar event
-      // For all-day, store start as "YYYY-MM-DD" and end as exclusive (YYYY-MM-DD + 1)
-      const hasTimes = !!(ev.startTime || ev.endTime) || (typeof ev.start === 'string' && ev.start.includes('T'));
-      const allDay = !hasTimes;
-      let start = ev.start;
-      let end = ev.end;
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const res = await getRedirectResult(auth);
+        if(res?.user) showStatus("Logged in with Google.", true);
+      } catch(e){ /* ignore */ }
 
-      if(allDay){
-        // if DB kept inclusive end, convert to exclusive for FC at render time
-        if(end) end = addDaysYMD(end, 1);
-      } else {
-        // if DB stored separate date+time fields, combine
-        if(ev.start && ev.startTime && !ev.start.includes('T')) start = `${ev.start}T${ev.startTime}:00`;
-        if(ev.end && ev.endTime && !ev.end.includes('T'))       end   = `${ev.end}T${ev.endTime}:00`;
-      }
-
-      const color = ev.color || colorFor(ev.createdBy || ev.owner);
-      return {
-        id: ev.id,
-        title: ev.title,
-        start, end,
-        allDay,
-        backgroundColor: color,
-        borderColor: color,
-        textColor: '#fff',
-        extendedProps: { createdBy: ev.createdBy || ev.owner || "" }
-      };
-    }
-
-    async function loadEvents(showMessage=false){
-      if(!currentUser) return;
-      const snap = await get(ref(db, "events"));
-      const data = snap.val() || {};
-      const list = Object.values(data).map(fcNormalize);
-      calendar.removeAllEvents();
-      calendar.addEventSource(list);
-      if(showMessage) showStatus(`Loaded ${list.length} event${list.length===1?'':'s'}.`, true);
-      updateWhenTitle();
-    }
-
-    function wireCalendar(){
-      calendar = new FullCalendar.Calendar($('calendar'), {
+      calendar = new FullCalendar.Calendar(el('calendar'), {
         initialView: 'dayGridMonth',
         headerToolbar: false,
-        firstDay: 0,
-        height: 'auto',
-        fixedWeekCount: true,
-        showNonCurrentDates: true,
-
-        datesSet(){ updateWhenTitle(); },
-
+        selectable: true,
+        editable: false,
+        navLinks: false,
+        dayMaxEvents: true,
+        eventTimeFormat: {hour:'numeric', minute:'2-digit', meridiem:'short'},
         dateClick(info){
-          if(!currentUser){ showStatus("Please log in to add events."); return; }
-          startNewEvent(info.dateStr);
+          if(!auth.currentUser){ showStatus("Please log in to add events.", false); return; }
+          openForm({startDate: info.dateStr, endDate: info.dateStr});
         },
-
         eventClick(info){
-          if(!currentUser){ showStatus("Please log in to edit/delete."); return; }
-          startEditEvent(info.event);
+          // open edit form instead of instant delete
+          const e = info.event;
+          if(!auth.currentUser){ showStatus("Please log in to edit.", false); return; }
+          openForm({
+            id: e.id,
+            title: e.title,
+            startDate: e.startStr?.slice(0,10),
+            endDate: e.endStr ? adjustExclusiveEnd(e) : e.startStr?.slice(0,10),
+            startTime: e.extendedProps.startTime || (e.allDay? "": e.startStr?.slice(11,16)),
+            endTime: e.extendedProps.endTime   || (e.allDay? "": e.endStr?.slice(11,16)),
+            owner: e.extendedProps.owner
+          }, true);
         },
-
-        // Long-press to delete quickly
         eventDidMount(arg){
-          let t = null;
-          const start = ()=>{
-            if(!currentUser) return;
-            t = setTimeout(async ()=>{
-              t=null;
-              if(confirm(`Delete "${arg.event.title || 'this event'}"?`)){
+          // enable long-press delete
+          const target = arg.el;
+          const id = arg.event.id;
+          target.addEventListener('pointerdown', () => {
+            longPressTimer = setTimeout(async ()=>{
+              if(confirm(`Delete "${arg.event.title}"?`)){
                 try{
-                  await remove(ref(db, "events/"+arg.event.id));
-                  showStatus("Event deleted.", true);
-                  await loadEvents(false);
-                }catch(e){ showStatus(e.message||"Failed to delete."); }
+                  await remove(ref(db, "events/"+id));
+                  arg.event.remove();
+                  showStatus("Deleted.", true);
+                }catch(e){ showStatus(e.message || "Delete failed", false); }
               }
-            }, LONG_PRESS_MS);
-          };
-          const cancel = ()=>{ if(t){ clearTimeout(t); t=null; } };
-
-          arg.el.addEventListener('touchstart', start, {passive:true});
-          arg.el.addEventListener('mousedown', start);
-          arg.el.addEventListener('touchend', cancel);
-          arg.el.addEventListener('touchmove', cancel);
-          arg.el.addEventListener('mouseup', cancel);
-          arg.el.addEventListener('mouseleave', cancel);
+            }, 650);
+          });
+          target.addEventListener('pointerup', ()=> clearTimeout(longPressTimer));
+          target.addEventListener('pointerleave', ()=> clearTimeout(longPressTimer));
         },
-
-        events: []
+        datesSet(){ setTitle(); }
       });
       calendar.render();
-      updateWhenTitle();
+      setTitle();
+    });
+
+    function adjustExclusiveEnd(fcEvent){
+      // FC all-day uses exclusive end; convert back to inclusive YYYY-MM-DD for form
+      if(!fcEvent.endStr) return fcEvent.startStr.slice(0,10);
+      const d = new Date(fcEvent.endStr);
+      d.setDate(d.getDate()-1);
+      const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+      return `${y}-${m}-${day}`;
     }
 
-    /* ---------------- Form logic (New/Edit/Delete) ---------------- */
-    const btnDelete = $('btn-delete');
-
-    function startNewEvent(dateStr){
-      $('formCard').classList.remove('hidden');
-      $('event-id').value = "";
-      $('event-title').value = "";
-      $('event-date-start').value = dateStr || "";
-      $('event-date-end').value = dateStr || "";
-      $('event-time-start').value = "";
-      $('event-time-end').value = "";
-      btnDelete.style.display = 'none';
+    function addDays(ymd, days){
+      const d = new Date(ymd + "T00:00:00");
+      d.setDate(d.getDate()+days);
+      const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+      return `${y}-${m}-${day}`;
     }
 
-    function startEditEvent(fcEvent){
-      $('formCard').classList.remove('hidden');
-      $('event-id').value = fcEvent.id || "";
-      $('event-title').value = fcEvent.title || "";
+    /* ------------------ Auth UI ------------------ */
+    const authSection = el('auth-section');
+    const logoutBtn = el('btn-logout');
+    const refreshBtn = el('btn-refresh');
+    const miniHint = el('auth-mini-hint');
 
-      if(fcEvent.allDay){
-        // FC gives exclusive end for all-day; convert to inclusive for form
-        $('event-date-start').value = fcEvent.startStr.slice(0,10);
-        const inclusive = fcEvent.end ? fcEvent.endStr.slice(0,10) : fcEvent.startStr.slice(0,10);
-        $('event-date-end').value = fcEvent.end ? addDaysYMD(inclusive, -1) : inclusive;
-        $('event-time-start').value = "";
-        $('event-time-end').value = "";
-      } else {
-        const s = fcEvent.start;
-        $('event-date-start').value = s.toISOString().slice(0,10);
-        $('event-time-start').value = `${String(s.getHours()).padStart(2,'0')}:${String(s.getMinutes()).padStart(2,'0')}`;
-        if(fcEvent.end){
-          const e = fcEvent.end;
-          $('event-date-end').value = e.toISOString().slice(0,10);
-          $('event-time-end').value = `${String(e.getHours()).padStart(2,'0')}:${String(e.getMinutes()).padStart(2,'0')}`;
-        } else {
-          $('event-date-end').value = $('event-date-start').value;
-          $('event-time-end').value = "";
-        }
-      }
-
-      btnDelete.style.display = 'block';
-    }
-
-    $('btn-save').onclick = async ()=>{
-      if(!currentUser){ showStatus("Please log in to save."); return; }
-
-      const id = $('event-id').value || Date.now().toString();
-      const title = $('event-title').value.trim();
-      const sd = $('event-date-start').value;
-      const ed = $('event-date-end').value;
-      const st = $('event-time-start').value;
-      const et = $('event-time-end').value;
-
-      if(!title || !sd){ showStatus("Title and start date are required."); return; }
-
-      const createdBy = currentUser.email || "";
-      const color = colorFor(createdBy);
-
-      const obj = {
-        id, title,
-        createdBy, color
-      };
-
-      if(!st && !et){
-        // all-day
-        obj.start = sd;             // YYYY-MM-DD
-        if(ed){ obj.end = ed; }     // inclusive in DB; FC will add +1 on render
-      } else {
-        // timed
-        obj.start = st ? `${sd}T${st}` : `${sd}T00:00`;
-        if(et){
-          obj.end = `${ed || sd}T${et}`;
-        } else if(ed){
-          obj.end = `${ed}T${st || "00:00"}`;
-        }
-        obj.startTime = st || "";
-        if(et) obj.endTime = et;
-      }
-
+    el('btn-signup').onclick = async () => {
+      const email = el('auth-email').value.trim();
+      const pass  = el('auth-password').value;
       try{
-        await set(ref(db, "events/"+id), obj);
-        $('formCard').classList.add('hidden');
-        showStatus("Saved!", true);
-        await loadEvents(false);
-      }catch(e){ showStatus(e.message || "Failed to save."); }
-    };
-
-    $('btn-delete').onclick = async ()=>{
-      const id = $('event-id').value;
-      if(!id) return;
-      if(!confirm("Delete this event?")) return;
-      try{
-        await remove(ref(db, "events/"+id));
-        $('formCard').classList.add('hidden');
-        showStatus("Event deleted.", true);
-        await loadEvents(false);
-      }catch(e){ showStatus(e.message || "Failed to delete."); }
-    };
-
-    $('btn-cancel').onclick = ()=> $('formCard').classList.add('hidden');
-
-    /* ---------------- Top buttons ---------------- */
-    $('btn-month').onclick = ()=>{ calendar.changeView('dayGridMonth'); updateWhenTitle(); };
-    $('btn-week').onclick  = ()=>{ calendar.changeView('timeGridWeek'); updateWhenTitle(); };
-    $('btn-day').onclick   = ()=>{ calendar.changeView('timeGridDay'); updateWhenTitle(); };
-
-    $('btn-prev').onclick  = ()=>{ calendar.prev(); updateWhenTitle(); };
-    $('btn-next').onclick  = ()=>{ calendar.next(); updateWhenTitle(); };
-    $('btn-today').onclick = ()=>{ calendar.today(); updateWhenTitle(); };
-
-    $('btn-refresh').onclick = ()=> loadEvents(true);
-
-    /* ---------------- Auth ---------------- */
-    function setAuthUI(user){
-      currentUser = user || null;
-      $('who').textContent = user?.email || "(not signed in)";
-      $('btn-logout').style.display = user ? 'inline-block' : 'none';
-      $('auth-section').classList.toggle('hidden', !!user);
-      if(user){
-        $('formCard').classList.add('hidden');
-        loadEvents(true);
-      }else{
-        calendar && calendar.removeAllEvents();
-        updateWhenTitle();
-      }
-    }
-
-    onAuthStateChanged(auth, setAuthUI);
-
-    $('btn-signup').onclick = async ()=>{
-      try{
-        const email = $('auth-email').value.trim();
-        const pass  = $('auth-password').value;
-        await createUserWithEmailAndPassword(auth, email, pass);
+        const u = await createUserWithEmailAndPassword(auth,email,pass);
         showStatus("Signed up.", true);
-      }catch(e){ showStatus(e.message || "Sign up failed."); }
+      }catch(e){ showStatus(e.message, false); }
     };
 
-    $('btn-login').onclick = async ()=>{
+    el('btn-login').onclick = async () => {
+      const email = el('auth-email').value.trim();
+      const pass  = el('auth-password').value;
       try{
-        const email = $('auth-email').value.trim();
-        const pass  = $('auth-password').value;
-        await signInWithEmailAndPassword(auth, email, pass);
+        const u = await signInWithEmailAndPassword(auth,email,pass);
         showStatus("Logged in.", true);
-      }catch(e){ showStatus(e.message || "Login failed."); }
+      }catch(e){ showStatus(e.message, false); }
     };
 
-    $('btn-logout').onclick = async ()=>{
-      try{ await signOut(auth); showStatus("Logged out.", true); }
-      catch(e){ showStatus(e.message || "Logout failed."); }
+    el('btn-google').onclick = async () => {
+      try{
+        if (isIOS || isSafari) await signInWithRedirect(auth, googleProvider);
+        else await signInWithPopup(auth, googleProvider);
+      }catch(e){ showStatus(e.message, false); }
     };
 
-    // boot
-    wireCalendar();
+    logoutBtn.onclick = async () => {
+      try { await signOut(auth); } catch(e){}
+    };
+
+    onAuthStateChanged(auth, (user) => {
+      const loggedIn = !!user;
+      signedInAs.classList.toggle('hidden', !loggedIn);
+      logoutBtn.classList.toggle('hidden', !loggedIn);
+      authSection.classList.toggle('hidden', loggedIn);
+      who.textContent = user?.email || "";
+      miniHint.textContent = loggedIn ? "" : "Not signed in";
+      if(loggedIn){ loadEvents(true); }
+      else { calendar.removeAllEvents(); }
+    });
+
+    /* ------------------ Controls & title ------------------ */
+    el('btn-month').onclick = () => calendar.changeView('dayGridMonth');
+    el('btn-week').onclick  = () => calendar.changeView('timeGridWeek');
+    el('btn-day').onclick   = () => calendar.changeView('timeGridDay');
+    el('btn-prev').onclick  = () => calendar.prev();
+    el('btn-next').onclick  = () => calendar.next();
+    el('btn-today').onclick = () => calendar.today();
+    refreshBtn.onclick = () => loadEvents(false);
+
+    /* ------------------ Event form logic ------------------ */
+    const fId = el('event-id'), fTitle = el('event-title'),
+          fStart = el('event-date-start'), fEnd = el('event-date-end'),
+          fStartT = el('event-time-start'), fEndT = el('event-time-end');
+    const formWrap = el('event-form');
+    const btnSave = el('btn-save'), btnCancel = el('btn-cancel'), btnDelete = el('btn-delete');
+
+    function openForm(data={}, isEdit=false){
+      formWrap.classList.remove('hidden');
+      fId.value    = data.id || "";
+      fTitle.value = data.title || "";
+      fStart.value = data.startDate || "";
+      fEnd.value   = data.endDate || data.startDate || "";
+      fStartT.value= data.startTime || "";
+      fEndT.value  = data.endTime || "";
+      btnDelete.classList.toggle('hidden', !isEdit);
+      fTitle.focus();
+      window.scrollTo({top:0, behavior:'smooth'});
+    }
+    btnCancel.onclick = ()=> formWrap.classList.add('hidden');
+
+    btnSave.onclick = async () => {
+      if(!auth.currentUser){ showStatus("Please log in to save.", false); return; }
+      const title = fTitle.value.trim();
+      const startDate = fStart.value;
+      const endDateInc = fEnd.value;
+      const startTime = fStartT.value;
+      const endTime = fEndT.value;
+
+      if(!title || !startDate){ showStatus("Title and start date are required.", false); return; }
+
+      const allDay = !(startTime && endTime);
+      // Construct ISO start/end
+      let startISO, endISO;
+      if(allDay){
+        startISO = startDate;
+        endISO = endDateInc && endDateInc >= startDate ? addDays(endDateInc, 1) : undefined; // FC expects exclusive end for all-day
+      }else{
+        startISO = `${startDate}T${startTime}:00`;
+        endISO   = `${endDateInc || startDate}T${endTime}:00`;
+      }
+
+      const id = fId.value || Date.now().toString();
+      const owner = auth.currentUser.email || "";
+      const color = colorForEmail(owner);
+
+      const eventObj = {
+        id, title,
+        start: startISO,
+        allDay,
+        owner,
+        color: color.bg,
+        textColor: color.text
+      };
+      if(endISO) eventObj.end = endISO;
+      if(startTime) eventObj.startTime = startTime;
+      if(endTime)   eventObj.endTime   = endTime;
+
+      try{
+        await set(ref(db, "events/"+id), eventObj);
+        formWrap.classList.add('hidden');
+        showStatus("Saved!", true);
+        loadEvents(false);
+      }catch(e){ showStatus(e.message || "Save failed", false); }
+    };
+
+    btnDelete.onclick = async ()=>{
+      const id = fId.value;
+      if(!id) return;
+      if(confirm(`Delete "${fTitle.value}"?`)){
+        try{
+          await remove(ref(db, "events/"+id));
+          formWrap.classList.add('hidden');
+          loadEvents(false);
+          showStatus("Deleted.", true);
+        }catch(e){ showStatus(e.message || "Delete failed", false); }
+      }
+    };
+
+    /* ------------------ Load events ------------------ */
+    async function loadEvents(initial){
+      if(!auth.currentUser) return;
+      try{
+        const snap = await get(ref(db,"events"));
+        const data = snap.val() || {};
+        const events = Object.values(data).map(e => {
+          // normalize legacy {date}
+          const start = e.start || e.date;
+          const c = { id: e.id, title: e.title, start, allDay: !!e.allDay,
+                      backgroundColor: e.color, borderColor: e.color, textColor: e.textColor,
+                      owner: e.owner, startTime: e.startTime, endTime: e.endTime };
+          if(e.end) c.end = e.end;
+          return c;
+        });
+        calendar.removeAllEvents();
+        calendar.addEventSource(events);
+        showStatus(`Loaded ${events.length} event(s)`, true);
+      }catch(e){ showStatus(e.message || "Failed to load events.", false); }
+    }
+
   </script>
 </body>
 </html>
